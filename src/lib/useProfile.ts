@@ -1,0 +1,37 @@
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from './supabase'
+import type { UserProfile, CropArea } from '../types'
+
+export function useProfile(userId: string | undefined) {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchProfile = useCallback(async () => {
+    if (!userId) return
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (data) setProfile(data as UserProfile)
+    setLoading(false)
+  }, [userId])
+
+  useEffect(() => { fetchProfile() }, [fetchProfile])
+
+  const updateProfile = async (updates: { display_name?: string; avatar_url?: string; avatar_crop?: CropArea | null }) => {
+    if (!userId) return { error: null }
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (!error && data) setProfile(data as UserProfile)
+    return { error }
+  }
+
+  return { profile, loading, updateProfile, refetch: fetchProfile }
+}
