@@ -11,6 +11,7 @@ export default async function handler(req, res) {
 
   const prices = { gold: null, silver: null, platinum: null, palladium: null };
 
+  // Try primary endpoint (v8 chart API)
   await Promise.allSettled(
     tickers.map(async ({ symbol, key }) => {
       try {
@@ -25,10 +26,34 @@ export default async function handler(req, res) {
           prices[key] = price;
         }
       } catch {
-        // skip this ticker
+        // skip this ticker on primary
       }
     })
   );
+
+  // If primary missed any, try backup endpoint (v6 quote API)
+  const missing = tickers.filter(({ key }) => prices[key] == null);
+  if (missing.length > 0) {
+    try {
+      const symbols = missing.map(t => t.symbol).join(',');
+      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${symbols}`;
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const results = data?.quoteResponse?.result ?? [];
+        for (const result of results) {
+          const ticker = missing.find(t => t.symbol === result.symbol);
+          if (ticker && typeof result.regularMarketPrice === 'number') {
+            prices[ticker.key] = result.regularMarketPrice;
+          }
+        }
+      }
+    } catch {
+      // backup also failed — client-side fallback will handle it
+    }
+  }
 
   res.status(200).json(prices);
 }

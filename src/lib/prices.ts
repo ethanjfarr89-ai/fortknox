@@ -1,14 +1,31 @@
 import type { SpotPrices } from '../types'
 
 const CACHE_KEY = 'fortknox_spot_prices'
+const FALLBACK_KEY = 'fortknox_spot_prices_fallback'
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+// Emergency fallback prices (updated periodically — better than showing $0)
+const EMERGENCY_PRICES: SpotPrices = {
+  gold: 2900,
+  silver: 33,
+  platinum: 1000,
+  palladium: 950,
+  updated_at: null,
+}
 
 interface CachedPrices {
   prices: SpotPrices
   cachedAt: number
 }
 
-function getCached(): SpotPrices | null {
+/** Returns true if prices object has at least one real metal price */
+function hasValidPrices(prices: SpotPrices): boolean {
+  return prices.gold != null || prices.silver != null ||
+         prices.platinum != null || prices.palladium != null
+}
+
+/** Get fresh cached prices (within TTL) */
+function getFreshCache(): SpotPrices | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
@@ -22,14 +39,71 @@ function getCached(): SpotPrices | null {
   return null
 }
 
-function setCache(prices: SpotPrices) {
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ prices, cachedAt: Date.now() }))
+/** Get last known good prices (never expires) */
+function getFallbackCache(): SpotPrices | null {
+  try {
+    const raw = localStorage.getItem(FALLBACK_KEY)
+    if (!raw) return null
+    const cached: CachedPrices = JSON.parse(raw)
+    return { ...cached.prices, updated_at: new Date(cached.prices.updated_at!) }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+/** Save to both fresh cache and permanent fallback */
+function saveToCache(prices: SpotPrices) {
+  const entry = JSON.stringify({ prices, cachedAt: Date.now() })
+  localStorage.setItem(CACHE_KEY, entry)
+  localStorage.setItem(FALLBACK_KEY, entry)
+}
+
+/** Get the best available prices — never returns all nulls */
+function getBestAvailable(): SpotPrices {
+  const fallback = getFallbackCache()
+  if (fallback && hasValidPrices(fallback)) return fallback
+  return { ...EMERGENCY_PRICES, updated_at: new Date() }
+}
+
+/** Merge new prices with existing, keeping old values where new ones are null */
+function mergePrices(fresh: SpotPrices, existing: SpotPrices): SpotPrices {
+  return {
+    gold: fresh.gold ?? existing.gold,
+    silver: fresh.silver ?? existing.silver,
+    platinum: fresh.platinum ?? existing.platinum,
+    palladium: fresh.palladium ?? existing.palladium,
+    updated_at: fresh.updated_at ?? existing.updated_at,
+  }
 }
 
 export async function fetchSpotPrices(): Promise<SpotPrices> {
-  const cached = getCached()
-  if (cached) return cached
+  // 1. Return fresh cache if available
+  const fresh = getFreshCache()
+  if (fresh && hasValidPrices(fresh)) return fresh
 
+  // 2. Try to fetch new prices
+  const fetched = await fetchFromAPI()
+
+  // 3. If we got valid data, save and return
+  if (hasValidPrices(fetched)) {
+    // Merge with fallback so partial results (e.g. gold ok but silver null) still show everything
+    const existing = getBestAvailable()
+    const merged = mergePrices(fetched, existing)
+    saveToCache(merged)
+    return merged
+  }
+
+  // 4. Fetch failed or returned all nulls — use best available fallback
+  return getBestAvailable()
+}
+
+/** Clear only the fresh cache (used for manual refresh) — fallback is preserved */
+export function clearFreshCache() {
+  localStorage.removeItem(CACHE_KEY)
+}
+
+async function fetchFromAPI(): Promise<SpotPrices> {
   const prices: SpotPrices = {
     gold: null,
     silver: null,
@@ -72,9 +146,6 @@ export async function fetchSpotPrices(): Promise<SpotPrices> {
   }
 
   prices.updated_at = new Date()
-  if (prices.gold != null || prices.silver != null) {
-    setCache(prices)
-  }
   return prices
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchSpotPrices } from './prices'
+import { fetchSpotPrices, clearFreshCache } from './prices'
 import type { SpotPrices } from '../types'
 
 export function useSpotPrices() {
@@ -17,13 +17,14 @@ export function useSpotPrices() {
     setLoading(true)
     setError(null)
     try {
-      // Clear cache to force fresh fetch
-      localStorage.removeItem('fortknox_spot_prices')
+      // Clear fresh cache to force re-fetch, but fallback is preserved
+      clearFreshCache()
       const data = await fetchSpotPrices()
       setPrices(data)
     } catch (err) {
       setError('Failed to fetch spot prices')
       console.error(err)
+      // Don't clear prices on error — keep whatever we had
     } finally {
       setLoading(false)
     }
@@ -38,6 +39,7 @@ export function useSpotPrices() {
       } catch (err) {
         setError('Failed to fetch spot prices')
         console.error(err)
+        // Keep existing prices on error
       } finally {
         setLoading(false)
       }
