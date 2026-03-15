@@ -26,18 +26,9 @@ function setCache(prices: SpotPrices) {
   localStorage.setItem(CACHE_KEY, JSON.stringify({ prices, cachedAt: Date.now() }))
 }
 
-// Fetches gold/silver/platinum/palladium spot prices from Yahoo Finance futures
-// Uses the v8 chart API via a CORS proxy for browser requests
 export async function fetchSpotPrices(): Promise<SpotPrices> {
   const cached = getCached()
   if (cached) return cached
-
-  const tickers = [
-    { symbol: 'GC=F', key: 'gold' as const },
-    { symbol: 'SI=F', key: 'silver' as const },
-    { symbol: 'PL=F', key: 'platinum' as const },
-    { symbol: 'PA=F', key: 'palladium' as const },
-  ]
 
   const prices: SpotPrices = {
     gold: null,
@@ -47,28 +38,28 @@ export async function fetchSpotPrices(): Promise<SpotPrices> {
     updated_at: null,
   }
 
-  const results = await Promise.allSettled(
-    tickers.map(async ({ symbol, key }) => {
-      // Yahoo Finance v8 chart endpoint — works with CORS proxy
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`Failed to fetch ${symbol}`)
+  try {
+    // Use our Vercel serverless function (no CORS issues)
+    const res = await fetch('/api/prices')
+    if (res.ok) {
       const data = await res.json()
-      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
-      if (typeof price === 'number') {
-        prices[key] = price
-      }
-    })
-  )
+      if (data.gold != null) prices.gold = data.gold
+      if (data.silver != null) prices.silver = data.silver
+      if (data.platinum != null) prices.platinum = data.platinum
+      if (data.palladium != null) prices.palladium = data.palladium
+    }
+  } catch {
+    // API route failed — try direct Yahoo as fallback (works in dev)
+    const tickers = [
+      { symbol: 'GC=F', key: 'gold' as const },
+      { symbol: 'SI=F', key: 'silver' as const },
+      { symbol: 'PL=F', key: 'platinum' as const },
+      { symbol: 'PA=F', key: 'palladium' as const },
+    ]
 
-  // If all failed, try the allcors proxy as fallback
-  const allFailed = results.every(r => r.status === 'rejected')
-  if (allFailed) {
     await Promise.allSettled(
       tickers.map(async ({ symbol, key }) => {
-        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
-        )}`
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
         const res = await fetch(url)
         if (!res.ok) return
         const data = await res.json()
@@ -81,7 +72,9 @@ export async function fetchSpotPrices(): Promise<SpotPrices> {
   }
 
   prices.updated_at = new Date()
-  setCache(prices)
+  if (prices.gold != null || prices.silver != null) {
+    setCache(prices)
+  }
   return prices
 }
 
@@ -103,12 +96,11 @@ export function calculateMeltValue(
   switch (metalType) {
     case 'gold':
       pricePerOz = spotPrices.gold
-      // Karat purity: 24k = 100%, 18k = 75%, 14k = 58.3%, 10k = 41.7%
       purity = (karat ?? 24) / 24
       break
     case 'silver':
       pricePerOz = spotPrices.silver
-      purity = (karat ?? 999) / 999 // Sterling = 925/999
+      purity = (karat ?? 999) / 999
       break
     case 'platinum':
       pricePerOz = spotPrices.platinum
