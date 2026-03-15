@@ -36,7 +36,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { profile, updateProfile } = useProfile(userId)
   const { collections, pieceCollectionMap, addCollection, deleteCollection, assignPiece, unassignPiece } = useCollections(userId)
   const { boards, addBoard, deleteBoard } = useStylingBoards(userId)
-  const { friends, pending, sendRequest, respondToRequest, removeFriend } = useFriends(userId)
+  const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend } = useFriends(userId)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -128,7 +128,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     setEditingPiece(null)
   }
 
-  const portfolioLabel = profile?.display_name ? `${profile.display_name}'s Portfolio` : 'Portfolio'
+  const portfolioLabel = profile?.display_name ? `${profile.display_name}'s Trove` : 'My Trove'
 
   // Collect all unique styling photos across pieces for the "add existing" feature
   const allStylingPhotos = useMemo(() => {
@@ -379,6 +379,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           pending={pending}
           userId={userId}
           onSendRequest={sendRequest}
+          onSearchProfiles={searchProfiles}
           onRespond={respondToRequest}
           onRemove={removeFriend}
           onClose={() => setShowFriends(false)}

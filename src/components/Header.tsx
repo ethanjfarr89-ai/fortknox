@@ -25,10 +25,7 @@ export default function Header({ profile, pendingFriendCount, onSignOut, onOpenP
   return (
     <header className="bg-black border-b border-neutral-800 sticky top-0 z-30">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <img src="/logo.jpg" alt="FortKnox" className="h-8 w-8 rounded" />
-          <span className="text-lg font-bold text-gold-400 tracking-wide">FORTKNOX</span>
-        </div>
+        <img src="/logo.jpg" alt="Trove" className="h-10 rounded" />
         <div className="flex items-center gap-2">
           {/* Friends */}
           <button

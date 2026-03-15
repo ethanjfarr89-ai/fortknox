@@ -8,7 +8,7 @@ export function useProfile(userId: string | undefined) {
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -16,11 +16,11 @@ export function useProfile(userId: string | undefined) {
 
     if (data) {
       setProfile(data as UserProfile)
-    } else {
-      // Profile doesn't exist yet — create it
+    } else if (error?.code === 'PGRST116') {
+      // No rows returned — create the profile
       const { data: newProfile } = await supabase
         .from('profiles')
-        .insert({ id: userId, display_name: null, avatar_url: null, avatar_crop: null, privacy_settings: null })
+        .insert({ id: userId, display_name: null, avatar_url: null })
         .select()
         .single()
       if (newProfile) setProfile(newProfile as UserProfile)
@@ -32,6 +32,8 @@ export function useProfile(userId: string | undefined) {
 
   const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; privacy_settings?: PrivacySettings | null }) => {
     if (!userId) return { error: null }
+
+    // Try full update first
     const { data, error } = await supabase
       .from('profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -39,7 +41,41 @@ export function useProfile(userId: string | undefined) {
       .select()
       .single()
 
-    if (!error && data) setProfile(data as UserProfile)
+    if (!error && data) {
+      setProfile(data as UserProfile)
+      return { error: null }
+    }
+
+    // If it failed (e.g. privacy_settings column missing), retry without it
+    if (error) {
+      const { privacy_settings: _, ...basicUpdates } = updates
+      const { data: data2, error: error2 } = await supabase
+        .from('profiles')
+        .update({ ...basicUpdates, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (!error2 && data2) {
+        setProfile(data2 as UserProfile)
+        return { error: null }
+      }
+
+      // If still failing, try upsert (profile row might not exist)
+      const { data: data3, error: error3 } = await supabase
+        .from('profiles')
+        .upsert({ id: userId, ...basicUpdates, updated_at: new Date().toISOString() })
+        .select()
+        .single()
+
+      if (!error3 && data3) {
+        setProfile(data3 as UserProfile)
+        return { error: null }
+      }
+
+      return { error: error3 || error2 }
+    }
+
     return { error }
   }
 

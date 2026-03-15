@@ -16,7 +16,6 @@ export function useFriends(userId: string | undefined) {
 
     if (!data) { setLoading(false); return }
 
-    // Fetch profiles for all friend user IDs
     const friendIds = new Set<string>()
     for (const row of data) {
       const r = row as Friendship
@@ -48,26 +47,25 @@ export function useFriends(userId: string | undefined) {
 
   useEffect(() => { fetchFriends() }, [fetchFriends])
 
-  const sendRequest = async (email: string) => {
-    // Look up by display_name
-    const { data: profiles } = await supabase
+  const searchProfiles = async (query: string): Promise<UserProfile[]> => {
+    if (!query.trim() || query.trim().length < 2) return []
+    const { data } = await supabase
       .from('profiles')
-      .select('id, display_name')
-      .ilike('display_name', email)
-      .limit(1)
+      .select('id, display_name, avatar_url, avatar_crop')
+      .ilike('display_name', `%${query.trim()}%`)
+      .neq('id', userId ?? '')
+      .limit(5)
+    return (data as UserProfile[]) ?? []
+  }
 
-    if (!profiles || profiles.length === 0) {
-      return { error: { message: 'User not found. Ask them to set their display name in their profile.' } }
-    }
-
-    const friendId = (profiles[0] as { id: string }).id
-    if (friendId === userId) {
+  const sendRequest = async (targetUserId: string) => {
+    if (targetUserId === userId) {
       return { error: { message: "You can't add yourself as a friend." } }
     }
 
     const { error } = await supabase.from('friendships').insert({
       requester_id: userId,
-      addressee_id: friendId,
+      addressee_id: targetUserId,
     })
 
     if (!error) await fetchFriends()
@@ -88,5 +86,5 @@ export function useFriends(userId: string | undefined) {
     await fetchFriends()
   }
 
-  return { friends, pending, loading, sendRequest, respondToRequest, removeFriend, refetch: fetchFriends }
+  return { friends, pending, loading, sendRequest, searchProfiles, respondToRequest, removeFriend, refetch: fetchFriends }
 }
