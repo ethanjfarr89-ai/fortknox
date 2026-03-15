@@ -34,9 +34,9 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
   const { saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
-  const { collections, pieceCollectionMap, addCollection, deleteCollection, assignPiece, unassignPiece } = useCollections(userId)
+  const { collections, pieceCollectionMap, shares, addCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection } = useCollections(userId)
   const { boards, addBoard, deleteBoard } = useStylingBoards(userId)
-  const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces } = useFriends(userId)
+  const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -386,6 +386,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onRespond={respondToRequest}
           onRemove={removeFriend}
           onFetchFriendPieces={fetchFriendPieces}
+          onFetchSharedCollections={fetchSharedCollections}
+          onFetchSharedPieceCollections={fetchSharedPieceCollections}
           onClose={() => setShowFriends(false)}
         />
       )}
@@ -393,8 +395,17 @@ export default function Dashboard({ userId, onSignOut }: Props) {
       {showCollections && (
         <CollectionManager
           collections={collections}
+          pieces={collectionPieces}
+          pieceCollectionMap={pieceCollectionMap}
+          friends={friends}
+          userId={userId}
+          shares={shares}
           onAdd={addCollection}
           onDelete={deleteCollection}
+          onAssignPiece={assignPiece}
+          onUnassignPiece={unassignPiece}
+          onShare={shareCollection}
+          onUnshare={unshareCollection}
           onClose={() => setShowCollections(false)}
         />
       )}

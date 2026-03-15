@@ -5,6 +5,8 @@ import type { Collection } from '../types'
 export function useCollections(userId: string | undefined) {
   const [collections, setCollections] = useState<Collection[]>([])
   const [pieceCollectionMap, setPieceCollectionMap] = useState<Record<string, string[]>>({})
+  // shares: collectionId → array of friend user IDs
+  const [shares, setShares] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
 
   const fetchCollections = useCallback(async () => {
@@ -36,10 +38,28 @@ export function useCollections(userId: string | undefined) {
     }
   }, [userId])
 
+  const fetchShares = useCallback(async () => {
+    if (!userId) return
+    const { data } = await supabase
+      .from('collection_shares')
+      .select('collection_id, friend_id')
+
+    if (data) {
+      const map: Record<string, string[]> = {}
+      for (const row of data) {
+        const r = row as { collection_id: string; friend_id: string }
+        if (!map[r.collection_id]) map[r.collection_id] = []
+        map[r.collection_id].push(r.friend_id)
+      }
+      setShares(map)
+    }
+  }, [userId])
+
   useEffect(() => {
     fetchCollections()
     fetchPieceCollections()
-  }, [fetchCollections, fetchPieceCollections])
+    fetchShares()
+  }, [fetchCollections, fetchPieceCollections, fetchShares])
 
   const addCollection = async (name: string, description?: string) => {
     const { data, error } = await supabase
@@ -54,7 +74,10 @@ export function useCollections(userId: string | undefined) {
 
   const deleteCollection = async (id: string) => {
     const { error } = await supabase.from('collections').delete().eq('id', id)
-    if (!error) setCollections(prev => prev.filter(c => c.id !== id))
+    if (!error) {
+      setCollections(prev => prev.filter(c => c.id !== id))
+      setShares(prev => { const next = { ...prev }; delete next[id]; return next })
+    }
     return { error }
   }
 
@@ -85,5 +108,41 @@ export function useCollections(userId: string | undefined) {
     return { error }
   }
 
-  return { collections, pieceCollectionMap, loading, addCollection, deleteCollection, assignPiece, unassignPiece, refetch: fetchCollections }
+  const shareCollection = async (collectionId: string, friendId: string) => {
+    const { error } = await supabase
+      .from('collection_shares')
+      .insert({ collection_id: collectionId, friend_id: friendId })
+
+    if (!error) {
+      setShares(prev => ({
+        ...prev,
+        [collectionId]: [...(prev[collectionId] || []), friendId],
+      }))
+    }
+    return { error }
+  }
+
+  const unshareCollection = async (collectionId: string, friendId: string) => {
+    const { error } = await supabase
+      .from('collection_shares')
+      .delete()
+      .eq('collection_id', collectionId)
+      .eq('friend_id', friendId)
+
+    if (!error) {
+      setShares(prev => ({
+        ...prev,
+        [collectionId]: (prev[collectionId] || []).filter(id => id !== friendId),
+      }))
+    }
+    return { error }
+  }
+
+  return {
+    collections, pieceCollectionMap, shares, loading,
+    addCollection, deleteCollection,
+    assignPiece, unassignPiece,
+    shareCollection, unshareCollection,
+    refetch: fetchCollections,
+  }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Check, X, Users, ChevronRight, User } from 'lucide-react'
-import type { Friendship, UserProfile, SpotPrices, JewelryPiece } from '../types'
+import type { Friendship, UserProfile, SpotPrices, JewelryPiece, Collection } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
 import FriendProfile from './FriendProfile'
@@ -15,10 +15,12 @@ interface Props {
   onRespond: (friendshipId: string, accept: boolean) => Promise<void>
   onRemove: (friendshipId: string) => Promise<void>
   onFetchFriendPieces: (friendUserId: string) => Promise<JewelryPiece[]>
+  onFetchSharedCollections: (friendUserId: string) => Promise<Collection[]>
+  onFetchSharedPieceCollections: () => Promise<Record<string, string[]>>
   onClose: () => void
 }
 
-export default function FriendsPanel({ friends, pending, userId, prices, onSendRequest, onSearchProfiles, onRespond, onRemove, onFetchFriendPieces, onClose }: Props) {
+export default function FriendsPanel({ friends, pending, userId, prices, onSendRequest, onSearchProfiles, onRespond, onRemove, onFetchFriendPieces, onFetchSharedCollections, onFetchSharedPieceCollections, onClose }: Props) {
   useScrollLock()
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserProfile[]>([])
@@ -65,6 +67,8 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
         profile={viewingFriend.friend_profile}
         prices={prices}
         fetchPieces={onFetchFriendPieces}
+        fetchSharedCollections={onFetchSharedCollections}
+        fetchSharedPieceCollections={onFetchSharedPieceCollections}
         onRemove={() => { onRemove(viewingFriend.id); setViewingFriend(null) }}
         onBack={() => setViewingFriend(null)}
         onClose={onClose}

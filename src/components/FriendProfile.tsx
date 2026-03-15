@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { X, Gem, Weight, Lock, Eye, EyeOff, Sparkles } from 'lucide-react'
-import type { JewelryPiece, SpotPrices, UserProfile, PrivacySettings } from '../types'
+import { X, Gem, Weight, Lock, Eye, EyeOff, Sparkles, FolderOpen } from 'lucide-react'
+import type { JewelryPiece, SpotPrices, UserProfile, PrivacySettings, Collection } from '../types'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
 import { useScrollLock } from '../lib/useScrollLock'
@@ -11,6 +11,8 @@ interface Props {
   profile: UserProfile
   prices: SpotPrices
   fetchPieces: (userId: string) => Promise<JewelryPiece[]>
+  fetchSharedCollections: (friendUserId: string) => Promise<Collection[]>
+  fetchSharedPieceCollections: () => Promise<Record<string, string[]>>
   onRemove: () => void
   onBack: () => void
   onClose: () => void
@@ -26,9 +28,12 @@ function fmtCurrency(val: number | null) {
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-export default function FriendProfile({ profile, prices, fetchPieces, onRemove, onBack, onClose }: Props) {
+export default function FriendProfile({ profile, prices, fetchPieces, fetchSharedCollections, fetchSharedPieceCollections, onRemove, onBack, onClose }: Props) {
   useScrollLock()
-  const [pieces, setPieces] = useState<JewelryPiece[]>([])
+  const [allPieces, setAllPieces] = useState<JewelryPiece[]>([])
+  const [sharedCollections, setSharedCollections] = useState<Collection[]>([])
+  const [pieceCollectionMap, setPieceCollectionMap] = useState<Record<string, string[]>>({})
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewingPiece, setViewingPiece] = useState<JewelryPiece | null>(null)
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null)
@@ -46,17 +51,37 @@ export default function FriendProfile({ profile, prices, fetchPieces, onRemove, 
   useEffect(() => {
     if (!canSeePieces) { setLoading(false); return }
     const load = async () => {
-      const data = await fetchPieces(profile.id)
-      setPieces(data)
+      const [piecesData, collectionsData, pcMap] = await Promise.all([
+        fetchPieces(profile.id),
+        fetchSharedCollections(profile.id),
+        fetchSharedPieceCollections(),
+      ])
+      setAllPieces(piecesData)
+      setSharedCollections(collectionsData)
+      setPieceCollectionMap(pcMap)
       setLoading(false)
     }
     load()
-  }, [profile.id, canSeePieces, fetchPieces])
+  }, [profile.id, canSeePieces, fetchPieces, fetchSharedCollections, fetchSharedPieceCollections])
+
+  // Filter pieces to only those in shared collections
+  const sharedCollectionIds = new Set(sharedCollections.map(c => c.id))
+  const pieces = sharedCollections.length === 0
+    ? allPieces // If no collection sharing set up, show all (RLS handles access)
+    : allPieces.filter(piece => {
+        const colIds = pieceCollectionMap[piece.id] ?? []
+        return colIds.some(cid => sharedCollectionIds.has(cid))
+      })
+
+  // Filter by selected collection
+  const displayPieces = selectedCollection
+    ? pieces.filter(p => (pieceCollectionMap[p.id] ?? []).includes(selectedCollection))
+    : pieces
 
   // Calculate totals
   let totalValue = 0
-  let pieceCount = pieces.length
-  for (const piece of pieces) {
+  let pieceCount = displayPieces.length
+  for (const piece of displayPieces) {
     const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
     const gemVal = calculateGemstoneValue(piece.gemstones)
     totalValue += (melt ?? 0) + gemVal
@@ -257,6 +282,32 @@ export default function FriendProfile({ profile, prices, fetchPieces, onRemove, 
             </span>
           </div>
 
+          {/* Collection filter pills */}
+          {canSeePieces && !loading && sharedCollections.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <FolderOpen className="w-3.5 h-3.5 text-neutral-500" />
+              <button
+                onClick={() => setSelectedCollection(null)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                  !selectedCollection ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                All
+              </button>
+              {sharedCollections.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCollection(c.id === selectedCollection ? null : c.id)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                    selectedCollection === c.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Pieces grid */}
           {!canSeePieces ? (
             <div className="text-center py-8">
@@ -265,11 +316,15 @@ export default function FriendProfile({ profile, prices, fetchPieces, onRemove, 
             </div>
           ) : loading ? (
             <div className="text-center py-8 text-neutral-500 text-sm">Loading collection...</div>
-          ) : pieces.length === 0 ? (
-            <div className="text-center py-8 text-neutral-500 text-sm">No pieces in their collection yet.</div>
+          ) : displayPieces.length === 0 ? (
+            <div className="text-center py-8 text-neutral-500 text-sm">
+              {pieces.length === 0
+                ? 'No collections have been shared with you yet.'
+                : 'No pieces in this collection.'}
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {pieces.map(piece => {
+              {displayPieces.map(piece => {
                 const photoUrl = canSeePhotos
                   ? (piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0])
                   : null
