@@ -72,6 +72,14 @@ export function useCollections(userId: string | undefined) {
     return { data, error }
   }
 
+  const renameCollection = async (id: string, newName: string) => {
+    const { error } = await supabase.from('collections').update({ name: newName }).eq('id', id)
+    if (!error) {
+      setCollections(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c).sort((a, b) => a.name.localeCompare(b.name)))
+    }
+    return { error }
+  }
+
   const deleteCollection = async (id: string) => {
     const { error } = await supabase.from('collections').delete().eq('id', id)
     if (!error) {
@@ -140,7 +148,7 @@ export function useCollections(userId: string | undefined) {
 
   return {
     collections, pieceCollectionMap, shares, loading,
-    addCollection, deleteCollection,
+    addCollection, renameCollection, deleteCollection,
     assignPiece, unassignPiece,
     shareCollection, unshareCollection,
     refetch: fetchCollections,

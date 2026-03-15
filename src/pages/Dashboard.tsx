@@ -36,7 +36,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
   const { saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
-  const { collections, pieceCollectionMap, shares, addCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection } = useCollections(userId)
+  const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection } = useCollections(userId)
   const { boards, addBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
 
@@ -453,6 +453,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           userId={userId}
           shares={shares}
           onAdd={addCollection}
+          onRename={renameCollection}
           onDelete={deleteCollection}
           onAssignPiece={assignPiece}
           onUnassignPiece={unassignPiece}

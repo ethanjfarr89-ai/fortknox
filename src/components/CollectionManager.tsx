@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, X, Share2, ChevronDown, ChevronUp, User, Gem, Package } from 'lucide-react'
+import { Plus, Trash2, X, Share2, ChevronDown, ChevronUp, User, Gem, Package, Pencil } from 'lucide-react'
 import type { Collection, Friendship, JewelryPiece } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
@@ -12,6 +12,7 @@ interface Props {
   userId: string
   shares: Record<string, string[]>
   onAdd: (name: string, description?: string) => Promise<{ error: unknown }>
+  onRename: (id: string, newName: string) => Promise<{ error: unknown }>
   onDelete: (id: string) => Promise<{ error: unknown }>
   onAssignPiece: (pieceId: string, collectionId: string) => Promise<{ error: unknown }>
   onUnassignPiece: (pieceId: string, collectionId: string) => Promise<{ error: unknown }>
@@ -22,13 +23,15 @@ interface Props {
 
 type ExpandTab = 'pieces' | 'sharing'
 
-export default function CollectionManager({ collections, pieces, pieceCollectionMap, friends, userId, shares, onAdd, onDelete, onAssignPiece, onUnassignPiece, onShare, onUnshare, onClose }: Props) {
+export default function CollectionManager({ collections, pieces, pieceCollectionMap, friends, userId, shares, onAdd, onRename, onDelete, onAssignPiece, onUnassignPiece, onShare, onUnshare, onClose }: Props) {
   useScrollLock()
   const [name, setName] = useState('')
   const [adding, setAdding] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandTab, setExpandTab] = useState<ExpandTab>('pieces')
   const [error, setError] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
 
   const handleAdd = async () => {
     if (!name.trim()) return
@@ -54,6 +57,19 @@ export default function CollectionManager({ collections, pieces, pieceCollection
       setExpandedId(id)
       setExpandTab('pieces')
     }
+  }
+
+  const startRename = (c: Collection, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRenamingId(c.id)
+    setRenameValue(c.name)
+  }
+
+  const submitRename = async (id: string) => {
+    if (renameValue.trim() && renameValue.trim() !== collections.find(c => c.id === id)?.name) {
+      await onRename(id, renameValue.trim())
+    }
+    setRenamingId(null)
   }
 
   const getFriendProfile = (f: Friendship) => f.friend_profile
@@ -113,18 +129,37 @@ export default function CollectionManager({ collections, pieces, pieceCollection
                 return (
                   <div key={c.id} className="bg-neutral-800 rounded-lg overflow-hidden">
                     {/* Collection header */}
-                    <button
-                      onClick={() => toggleExpand(c.id)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-neutral-700/50 transition"
+                    <div
+                      onClick={() => { if (renamingId !== c.id) toggleExpand(c.id) }}
+                      className="w-full flex items-center justify-between p-3 hover:bg-neutral-700/50 transition cursor-pointer"
                     >
                       <div className="flex items-center gap-2 text-left min-w-0">
-                        <span className="text-sm text-white font-medium truncate">{c.name}</span>
+                        {renamingId === c.id ? (
+                          <input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') submitRename(c.id); if (e.key === 'Escape') setRenamingId(null) }}
+                            onBlur={() => submitRename(c.id)}
+                            onClick={e => e.stopPropagation()}
+                            autoFocus
+                            className="text-sm text-white font-medium bg-neutral-700 border border-neutral-600 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-gold-400 w-32"
+                          />
+                        ) : (
+                          <span className="text-sm text-white font-medium truncate">{c.name}</span>
+                        )}
                         <span className="text-xs text-neutral-500 shrink-0">{piecesInCollection.length} pieces</span>
                         {sharedWith.length > 0 && (
                           <span className="text-xs text-gold-400 shrink-0">{sharedWith.length} shared</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={e => startRename(c, e)}
+                          className="p-1.5 hover:bg-neutral-600 rounded transition"
+                          title="Rename"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-neutral-500 hover:text-white" />
+                        </button>
                         <button
                           onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${c.name}"?`)) onDelete(c.id) }}
                           className="p-1.5 hover:bg-neutral-600 rounded transition"
@@ -133,7 +168,7 @@ export default function CollectionManager({ collections, pieces, pieceCollection
                         </button>
                         {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-neutral-500" /> : <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Expanded panel */}
                     {isExpanded && (
