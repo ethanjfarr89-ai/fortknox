@@ -135,6 +135,7 @@ export default function FriendsPanel({ friends, pending, userId, onSendRequest, 
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
+                autoComplete="off"
                 className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500"
                 placeholder="Search by display name..."
               />
@@ -238,7 +239,7 @@ export default function FriendsPanel({ friends, pending, userId, onSendRequest, 
                   <button
                     key={f.id}
                     onClick={() => setViewingFriend(f)}
-                    className="w-full flex items-center justify-between bg-neutral-800 rounded-lg p-3 hover:bg-neutral-750 transition"
+                    className="w-full flex items-center justify-between bg-neutral-800 rounded-lg p-3 hover:bg-neutral-700 transition"
                   >
                     <div className="flex items-center gap-2">
                       {f.friend_profile?.avatar_url ? (
