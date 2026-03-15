@@ -1,13 +1,45 @@
 import { useState } from 'react'
-import { Camera, Save, X } from 'lucide-react'
-import type { UserProfile, CropArea } from '../types'
+import { Camera, Save, X, Shield } from 'lucide-react'
+import type { UserProfile, CropArea, PrivacySettings, PrivacyLevel } from '../types'
 import { supabase } from '../lib/supabase'
 import ImageCropper from './ImageCropper'
 
 interface Props {
   profile: UserProfile
-  onUpdate: (updates: { display_name?: string; avatar_url?: string; avatar_crop?: CropArea | null }) => Promise<{ error: unknown }>
+  onUpdate: (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; privacy_settings?: PrivacySettings | null }) => Promise<{ error: unknown }>
   onClose: () => void
+}
+
+const DEFAULT_PRIVACY: PrivacySettings = {
+  show_values: 'private',
+  show_pieces: 'friends',
+  show_photos: 'friends',
+}
+
+const privacyLabels: Record<PrivacyLevel, string> = {
+  private: 'Only Me',
+  friends: 'Friends',
+  public: 'Everyone',
+}
+
+function PrivacyRow({ label, description, value, onChange }: { label: string; description: string; value: PrivacyLevel; onChange: (v: PrivacyLevel) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2">
+      <div>
+        <p className="text-sm text-white">{label}</p>
+        <p className="text-xs text-neutral-500">{description}</p>
+      </div>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value as PrivacyLevel)}
+        className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-gold-400 shrink-0"
+      >
+        <option value="private">{privacyLabels.private}</option>
+        <option value="friends">{privacyLabels.friends}</option>
+        <option value="public">{privacyLabels.public}</option>
+      </select>
+    </div>
+  )
 }
 
 export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
@@ -15,6 +47,7 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? '')
   const [showCropper, setShowCropper] = useState(false)
   const [avatarCrop, setAvatarCrop] = useState<CropArea | null>(profile.avatar_crop ?? null)
+  const [privacy, setPrivacy] = useState<PrivacySettings>(profile.privacy_settings ?? DEFAULT_PRIVACY)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -37,13 +70,18 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
     e.target.value = ''
   }
 
+  const updatePrivacy = (key: keyof PrivacySettings, value: PrivacyLevel) => {
+    setPrivacy(prev => ({ ...prev, [key]: value }))
+  }
+
   const handleSave = async () => {
     setSaving(true)
     await onUpdate({
       display_name: displayName.trim() || null,
       avatar_url: avatarUrl || null,
       avatar_crop: avatarCrop,
-    } as Parameters<typeof onUpdate>[0])
+      privacy_settings: privacy,
+    })
     setSaving(false)
     onClose()
   }
@@ -55,13 +93,13 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8 px-4">
         <div className="bg-neutral-900 rounded-2xl shadow-xl w-full max-w-sm border border-neutral-800">
           <div className="flex items-center justify-between p-5 border-b border-neutral-800">
-            <h2 className="text-lg font-semibold text-white">Profile</h2>
+            <h2 className="text-lg font-semibold text-white">My Profile</h2>
             <button onClick={onClose} className="p-1 hover:bg-neutral-800 rounded-lg transition">
               <X className="w-5 h-5 text-neutral-500" />
             </button>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-5 space-y-6">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
@@ -93,6 +131,35 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
             <div>
               <label className="block text-sm font-medium text-neutral-400 mb-1">Display Name</label>
               <input value={displayName} onChange={e => setDisplayName(e.target.value)} className={inputCls} placeholder="Your name" />
+              <p className="text-xs text-neutral-600 mt-1">Friends will find you by this name.</p>
+            </div>
+
+            {/* Privacy Settings */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <Shield className="w-4 h-4 text-gold-400" />
+                <h3 className="text-sm font-semibold text-white">Privacy</h3>
+              </div>
+              <div className="space-y-1 divide-y divide-neutral-800">
+                <PrivacyRow
+                  label="Piece Values"
+                  description="Who can see melt/appraised values"
+                  value={privacy.show_values}
+                  onChange={v => updatePrivacy('show_values', v)}
+                />
+                <PrivacyRow
+                  label="Collection"
+                  description="Who can see your pieces"
+                  value={privacy.show_pieces}
+                  onChange={v => updatePrivacy('show_pieces', v)}
+                />
+                <PrivacyRow
+                  label="Photos"
+                  description="Who can see your piece photos"
+                  value={privacy.show_photos}
+                  onChange={v => updatePrivacy('show_photos', v)}
+                />
+              </div>
             </div>
           </div>
 

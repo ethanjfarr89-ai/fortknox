@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { UserProfile, CropArea } from '../types'
+import type { UserProfile, CropArea, PrivacySettings } from '../types'
 
 export function useProfile(userId: string | undefined) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -14,13 +14,23 @@ export function useProfile(userId: string | undefined) {
       .eq('id', userId)
       .single()
 
-    if (data) setProfile(data as UserProfile)
+    if (data) {
+      setProfile(data as UserProfile)
+    } else {
+      // Profile doesn't exist yet — create it
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .insert({ id: userId, display_name: null, avatar_url: null, avatar_crop: null, privacy_settings: null })
+        .select()
+        .single()
+      if (newProfile) setProfile(newProfile as UserProfile)
+    }
     setLoading(false)
   }, [userId])
 
   useEffect(() => { fetchProfile() }, [fetchProfile])
 
-  const updateProfile = async (updates: { display_name?: string; avatar_url?: string; avatar_crop?: CropArea | null }) => {
+  const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; privacy_settings?: PrivacySettings | null }) => {
     if (!userId) return { error: null }
     const { data, error } = await supabase
       .from('profiles')
