@@ -465,7 +465,7 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
             onChange={setPhotoUrls}
             showProfileSelect
             profileIndex={profilePhotoIndex}
-            onSetProfile={(i) => { setProfilePhotoIndex(i); setProfilePhotoCrop(null) }}
+            onSetProfile={(i) => { if (i !== profilePhotoIndex) { setProfilePhotoIndex(i); setProfilePhotoCrop(null) } }}
             onCropProfile={setProfilePhotoCrop}
             profileCrop={profilePhotoCrop}
           />

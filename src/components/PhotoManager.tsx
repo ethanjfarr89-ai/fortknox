@@ -20,6 +20,7 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
   const [uploading, setUploading] = useState(false)
   const [cropIndex, setCropIndex] = useState<number | null>(null)
   const [showExisting, setShowExisting] = useState(false)
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -54,6 +55,7 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
   const remove = (index: number) => {
     const updated = urls.filter((_, i) => i !== index)
     onChange(updated)
+    setActiveIndex(null)
     if (showProfileSelect && onSetProfile && profileIndex !== undefined) {
       if (index === profileIndex) {
         onSetProfile(0)
@@ -69,6 +71,10 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
     }
   }
 
+  const toggleActive = (i: number) => {
+    setActiveIndex(prev => prev === i ? null : i)
+  }
+
   // Filter out photos already added
   const availableExisting = existingPhotos?.filter(url => !urls.includes(url)) ?? []
 
@@ -77,47 +83,63 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
       <label className="block text-sm font-medium text-neutral-400 mb-1">{label}</label>
       {urls.length > 0 && (
         <div className="flex gap-2 mb-2 flex-wrap">
-          {urls.map((url, i) => (
-            <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden group">
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                {showProfileSelect && onSetProfile && (
-                  <>
+          {urls.map((url, i) => {
+            const isActive = activeIndex === i
+            const isProfile = showProfileSelect && i === profileIndex
+
+            return (
+              <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden">
+                <img
+                  src={url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onClick={() => toggleActive(i)}
+                />
+                {/* Action buttons — visible on hover (desktop) or tap (mobile) */}
+                <div
+                  className={`absolute inset-0 bg-black/50 flex items-center justify-center gap-2 transition ${
+                    isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+                  }`}
+                  onClick={() => toggleActive(i)}
+                >
+                  {showProfileSelect && onSetProfile && (
                     <button
                       type="button"
-                      onClick={() => onSetProfile(i)}
-                      className={`p-1 rounded ${i === profileIndex ? 'text-gold-400' : 'text-white hover:text-gold-400'}`}
-                      title="Set as profile photo"
+                      onClick={e => { e.stopPropagation(); onSetProfile(i); setActiveIndex(null) }}
+                      className={`p-1.5 rounded-full ${isProfile ? 'text-gold-400 bg-black/40' : 'text-white hover:text-gold-400'}`}
+                      title="Set as main photo"
                     >
-                      <Star className={`w-4 h-4 ${i === profileIndex ? 'fill-gold-400' : ''}`} />
+                      <Star className={`w-4 h-4 ${isProfile ? 'fill-gold-400' : ''}`} />
                     </button>
-                    {i === profileIndex && onCropProfile && (
-                      <button
-                        type="button"
-                        onClick={() => setCropIndex(i)}
-                        className="p-1 text-white hover:text-gold-400 rounded"
-                        title="Crop profile photo"
-                      >
-                        <Crop className="w-4 h-4" />
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => remove(i)}
-                  className="p-1 text-white hover:text-red-400"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {showProfileSelect && i === profileIndex && (
-                <div className="absolute top-0.5 left-0.5">
-                  <Star className="w-3 h-3 text-gold-400 fill-gold-400" />
+                  )}
+                  {showProfileSelect && isProfile && onCropProfile && (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setCropIndex(i); setActiveIndex(null) }}
+                      className="p-1.5 rounded-full text-white hover:text-gold-400"
+                      title="Crop main photo"
+                    >
+                      <Crop className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); remove(i) }}
+                    className="p-1.5 rounded-full text-white hover:text-red-400"
+                    title="Remove photo"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+                {/* Profile star indicator */}
+                {isProfile && !isActive && (
+                  <div className="absolute top-0.5 left-0.5">
+                    <Star className="w-3 h-3 text-gold-400 fill-gold-400" />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
       <div className="flex gap-2">
@@ -149,14 +171,14 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
 
       {showExisting && availableExisting.length > 0 && (
         <div className="mt-2 p-2 bg-neutral-800 rounded-lg">
-          <p className="text-xs text-neutral-500 mb-2">Click to add an existing styling photo</p>
-          <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto">
+          <p className="text-xs text-neutral-500 mb-2">Tap to add an existing styling photo</p>
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-40 overflow-y-auto">
             {availableExisting.map(url => (
               <button
                 key={url}
                 type="button"
-                onClick={() => { addExisting(url); }}
-                className="aspect-square rounded overflow-hidden border border-neutral-700 hover:border-gold-400 transition"
+                onClick={() => addExisting(url)}
+                className="aspect-square rounded-lg overflow-hidden border-2 border-neutral-700 hover:border-gold-400 transition"
               >
                 <img src={url} alt="" className="w-full h-full object-cover" />
               </button>
