@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { LogOut, User, Users, Settings } from 'lucide-react'
 import type { UserProfile } from '../types'
+import CroppedImage from './CroppedImage'
 
 interface Props {
   profile: UserProfile | null
@@ -49,7 +50,7 @@ export default function Header({ profile, pendingFriendCount, onSignOut, onOpenP
               title="Profile"
             >
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover border border-neutral-700" />
+                <CroppedImage src={profile.avatar_url} alt="" crop={profile.avatar_crop} className="w-7 h-7 rounded-full object-cover border border-neutral-700" />
               ) : (
                 <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center">
                   <User className="w-3.5 h-3.5 text-neutral-400" />

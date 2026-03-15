@@ -4,6 +4,7 @@ import type { UserProfile, CropArea, PrivacySettings, PrivacyLevel } from '../ty
 import { supabase } from '../lib/supabase'
 import { useScrollLock } from '../lib/useScrollLock'
 import ImageCropper from './ImageCropper'
+import CroppedImage from './CroppedImage'
 
 interface Props {
   profile: UserProfile
@@ -114,7 +115,7 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
               <div className="relative">
                 <div className="w-24 h-24 rounded-full bg-neutral-800 overflow-hidden border-2 border-neutral-700">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                    <CroppedImage src={avatarUrl} alt="" crop={avatarCrop} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gold-400">
                       {(displayName || '?')[0]?.toUpperCase()}
