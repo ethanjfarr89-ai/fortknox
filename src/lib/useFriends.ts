@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { Friendship, UserProfile } from '../types'
+import type { Friendship, UserProfile, JewelryPiece } from '../types'
 
 export function useFriends(userId: string | undefined) {
   const [friends, setFriends] = useState<Friendship[]>([])
@@ -86,5 +86,15 @@ export function useFriends(userId: string | undefined) {
     await fetchFriends()
   }
 
-  return { friends, pending, loading, sendRequest, searchProfiles, respondToRequest, removeFriend, refetch: fetchFriends }
+  const fetchFriendPieces = async (friendUserId: string): Promise<JewelryPiece[]> => {
+    const { data } = await supabase
+      .from('pieces')
+      .select('*')
+      .eq('user_id', friendUserId)
+      .eq('is_wishlist', false)
+      .order('name')
+    return (data as JewelryPiece[]) ?? []
+  }
+
+  return { friends, pending, loading, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, refetch: fetchFriends }
 }

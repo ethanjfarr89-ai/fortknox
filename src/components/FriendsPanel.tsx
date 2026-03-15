@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Check, X, Users, ChevronRight, User } from 'lucide-react'
-import type { Friendship, UserProfile } from '../types'
+import type { Friendship, UserProfile, SpotPrices, JewelryPiece } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
+import FriendProfile from './FriendProfile'
 
 interface Props {
   friends: Friendship[]
   pending: Friendship[]
   userId: string
+  prices: SpotPrices
   onSendRequest: (targetUserId: string) => Promise<{ error: unknown }>
   onSearchProfiles: (query: string) => Promise<UserProfile[]>
   onRespond: (friendshipId: string, accept: boolean) => Promise<void>
   onRemove: (friendshipId: string) => Promise<void>
+  onFetchFriendPieces: (friendUserId: string) => Promise<JewelryPiece[]>
   onClose: () => void
 }
 
-export default function FriendsPanel({ friends, pending, userId, onSendRequest, onSearchProfiles, onRespond, onRemove, onClose }: Props) {
+export default function FriendsPanel({ friends, pending, userId, prices, onSendRequest, onSearchProfiles, onRespond, onRemove, onFetchFriendPieces, onClose }: Props) {
   useScrollLock()
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserProfile[]>([])
@@ -55,65 +58,16 @@ export default function FriendsPanel({ friends, pending, userId, onSendRequest, 
   }
 
   // Friend profile view
-  if (viewingFriend) {
-    const friendProfile = viewingFriend.friend_profile
-    const privacy = friendProfile?.privacy_settings
-    const canSee = privacy?.show_pieces !== 'private'
-    const canSeeValues = privacy?.show_values !== 'private'
-    const canSeePhotos = privacy?.show_photos !== 'private'
-
-    // For now, we don't have access to the friend's pieces from the client
-    // This shows their profile info and privacy-allowed details
+  if (viewingFriend && viewingFriend.friend_profile) {
     return (
-      <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8 px-4">
-        <div className="bg-neutral-900 rounded-2xl shadow-xl w-full max-w-sm border border-neutral-800">
-          <div className="flex items-center justify-between p-5 border-b border-neutral-800">
-            <button onClick={() => setViewingFriend(null)} className="text-sm text-gold-400 hover:text-gold-300">
-              &larr; Back
-            </button>
-            <button onClick={onClose} className="p-1 hover:bg-neutral-800 rounded-lg transition">
-              <X className="w-5 h-5 text-neutral-500" />
-            </button>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {/* Profile header */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-20 h-20 rounded-full bg-neutral-800 overflow-hidden border-2 border-neutral-700">
-                {friendProfile?.avatar_url ? (
-                  <img src={friendProfile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xl font-bold text-gold-400">
-                    {(friendProfile?.display_name ?? '?')[0]?.toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <h3 className="text-lg font-semibold text-white">{friendProfile?.display_name ?? 'Unknown'}</h3>
-            </div>
-
-            {/* Privacy-based content */}
-            {!canSee ? (
-              <div className="text-center py-6">
-                <p className="text-sm text-neutral-500">This user's collection is private.</p>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-sm text-neutral-500">Collection viewing coming soon.</p>
-                <p className="text-xs text-neutral-600 mt-1">
-                  {canSeeValues ? 'Values visible' : 'Values hidden'} &middot; {canSeePhotos ? 'Photos visible' : 'Photos hidden'}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() => { if (window.confirm('Remove friend?')) { onRemove(viewingFriend.id); setViewingFriend(null) } }}
-              className="w-full py-2.5 border border-red-900/50 text-red-400 text-sm font-medium rounded-lg hover:bg-red-900/20 transition"
-            >
-              Remove Friend
-            </button>
-          </div>
-        </div>
-      </div>
+      <FriendProfile
+        profile={viewingFriend.friend_profile}
+        prices={prices}
+        fetchPieces={onFetchFriendPieces}
+        onRemove={() => { onRemove(viewingFriend.id); setViewingFriend(null) }}
+        onBack={() => setViewingFriend(null)}
+        onClose={onClose}
+      />
     )
   }
 

@@ -36,7 +36,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { profile, updateProfile } = useProfile(userId)
   const { collections, pieceCollectionMap, addCollection, deleteCollection, assignPiece, unassignPiece } = useCollections(userId)
   const { boards, addBoard, deleteBoard } = useStylingBoards(userId)
-  const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend } = useFriends(userId)
+  const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces } = useFriends(userId)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -380,10 +380,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           friends={friends}
           pending={pending}
           userId={userId}
+          prices={prices}
           onSendRequest={sendRequest}
           onSearchProfiles={searchProfiles}
           onRespond={respondToRequest}
           onRemove={removeFriend}
+          onFetchFriendPieces={fetchFriendPieces}
           onClose={() => setShowFriends(false)}
         />
       )}
