@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, Gemstone, Category, AcquisitionType, Collection, CropArea } from '../types'
 import { CATEGORIES } from '../types'
+import { normalizeMetalType } from '../lib/prices'
+import { useScrollLock } from '../lib/useScrollLock'
 import GemstoneFields from './GemstoneFields'
 import PhotoManager from './PhotoManager'
 
@@ -18,7 +20,9 @@ interface Props {
 }
 
 const metalOptions = [
-  { value: 'gold', label: 'Gold' },
+  { value: 'yellow_gold', label: 'Yellow Gold' },
+  { value: 'white_gold', label: 'White Gold' },
+  { value: 'rose_gold', label: 'Rose Gold' },
   { value: 'silver', label: 'Silver' },
   { value: 'platinum', label: 'Platinum' },
   { value: 'palladium', label: 'Palladium' },
@@ -26,11 +30,13 @@ const metalOptions = [
 ]
 
 export default function PieceForm({ piece, onSave, onClose, defaultWishlist, collections, pieceCollections, onAssignCollection, onUnassignCollection, allStylingPhotos }: Props) {
+  useScrollLock()
+
   // Core
   const [name, setName] = useState(piece?.name ?? '')
   const [description, setDescription] = useState(piece?.description ?? '')
   const [category, setCategory] = useState<Category>(piece?.category ?? 'ring')
-  const [metalType, setMetalType] = useState(piece?.metal_type ?? 'gold')
+  const [metalType, setMetalType] = useState(normalizeMetalType(piece?.metal_type ?? 'yellow_gold'))
   const [weightGrams, setWeightGrams] = useState(piece?.metal_weight_grams?.toString() ?? '')
   const [karat, setKarat] = useState(piece?.metal_karat?.toString() ?? '')
   const [history, setHistory] = useState(piece?.history ?? '')
@@ -208,16 +214,16 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
               <input type="number" step="0.01" min="0" value={weightGrams} onChange={e => setWeightGrams(e.target.value)} className={inputCls} placeholder="31.1" />
             </div>
             <div>
-              <label className={labelCls}>{metalType === 'gold' ? 'Karat' : 'Purity'}</label>
+              <label className={labelCls}>{['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? 'Karat' : 'Purity'}</label>
               <input
                 type="number"
                 step="0.1"
                 min="0"
-                max={metalType === 'gold' ? '24' : undefined}
+                max={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '24' : undefined}
                 value={karat}
                 onChange={e => setKarat(e.target.value)}
                 className={inputCls}
-                placeholder={metalType === 'gold' ? '14' : metalType === 'silver' ? '925' : '950'}
+                placeholder={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '14' : metalType === 'silver' ? '925' : '950'}
               />
             </div>
           </div>

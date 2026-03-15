@@ -13,6 +13,10 @@ const emptyGemstone: Gemstone = {
   color: '',
   clarity: '',
   gia_number: '',
+  value: null,
+  origin: '',
+  is_pave: false,
+  quantity: null,
 }
 
 const stoneTypes = ['Diamond', 'Ruby', 'Sapphire', 'Emerald', 'Amethyst', 'Topaz', 'Opal', 'Pearl', 'Garnet', 'Aquamarine', 'Tanzanite', 'Tourmaline', 'Morganite', 'Peridot', 'Other']
@@ -22,9 +26,10 @@ const inputCls = 'w-full px-3 py-2 bg-neutral-800 border border-neutral-700 roun
 const labelCls = 'block text-xs font-medium text-neutral-500 mb-1'
 
 export default function GemstoneFields({ gemstones, onChange }: Props) {
-  const add = () => onChange([...gemstones, { ...emptyGemstone }])
+  const addSingle = () => onChange([...gemstones, { ...emptyGemstone }])
+  const addPave = () => onChange([...gemstones, { ...emptyGemstone, is_pave: true }])
   const remove = (i: number) => onChange(gemstones.filter((_, idx) => idx !== i))
-  const update = (i: number, field: keyof Gemstone, value: string | number | null) => {
+  const update = (i: number, field: keyof Gemstone, value: string | number | boolean | null) => {
     const updated = gemstones.map((g, idx) => idx === i ? { ...g, [field]: value } : g)
     onChange(updated)
   }
@@ -33,13 +38,22 @@ export default function GemstoneFields({ gemstones, onChange }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="block text-sm font-medium text-neutral-400">Gemstones</label>
-        <button
-          type="button"
-          onClick={add}
-          className="flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition"
-        >
-          <Plus className="w-3 h-3" /> Add gemstone
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={addPave}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-gold-300 transition"
+          >
+            <Plus className="w-3 h-3" /> Pavé / Bulk
+          </button>
+          <button
+            type="button"
+            onClick={addSingle}
+            className="flex items-center gap-1 text-xs text-gold-400 hover:text-gold-300 transition"
+          >
+            <Plus className="w-3 h-3" /> Add gemstone
+          </button>
+        </div>
       </div>
 
       {gemstones.map((gem, i) => (
@@ -51,6 +65,11 @@ export default function GemstoneFields({ gemstones, onChange }: Props) {
           >
             <X className="w-3.5 h-3.5 text-neutral-500" />
           </button>
+
+          {/* Pavé badge */}
+          {gem.is_pave && (
+            <div className="text-xs font-medium text-gold-400 mb-1">Pavé / Bulk Stones</div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -64,61 +83,145 @@ export default function GemstoneFields({ gemstones, onChange }: Props) {
                 {stoneTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <div>
-              <label className={labelCls}>Cut</label>
-              <select
-                value={gem.cut}
-                onChange={e => update(i, 'cut', e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Select...</option>
-                {cuts.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+            {gem.is_pave ? (
+              <div>
+                <label className={labelCls}>Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={gem.quantity ?? ''}
+                  onChange={e => update(i, 'quantity', e.target.value ? parseInt(e.target.value) : null)}
+                  className={inputCls}
+                  placeholder="e.g. 24"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className={labelCls}>Cut</label>
+                <select
+                  value={gem.cut}
+                  onChange={e => update(i, 'cut', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">Select...</option>
+                  {cuts.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          {/* Diamond-specific: Natural vs Lab */}
+          {gem.stone_type === 'Diamond' && (
             <div>
-              <label className={labelCls}>Carat Weight</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={gem.carat_weight ?? ''}
-                onChange={e => update(i, 'carat_weight', e.target.value ? parseFloat(e.target.value) : null)}
-                className={inputCls}
-                placeholder="0.50"
-              />
+              <label className={labelCls}>Origin</label>
+              <div className="flex gap-1.5">
+                {([['natural', 'Natural'], ['lab', 'Lab-Grown']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => update(i, 'origin', gem.origin === val ? '' : val)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                      gem.origin === val ? 'bg-gold-400 text-black' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Color</label>
-              <input
-                value={gem.color}
-                onChange={e => update(i, 'color', e.target.value)}
-                className={inputCls}
-                placeholder="D-Z / color"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Clarity</label>
-              <input
-                value={gem.clarity}
-                onChange={e => update(i, 'clarity', e.target.value)}
-                className={inputCls}
-                placeholder="VS1, SI2..."
-              />
-            </div>
-          </div>
+          )}
 
-          <div>
-            <label className={labelCls}>GIA Certificate #</label>
-            <input
-              value={gem.gia_number}
-              onChange={e => update(i, 'gia_number', e.target.value)}
-              className={inputCls}
-              placeholder="Optional"
-            />
-          </div>
+          {!gem.is_pave && (
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className={labelCls}>Carat Weight</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={gem.carat_weight ?? ''}
+                  onChange={e => update(i, 'carat_weight', e.target.value ? parseFloat(e.target.value) : null)}
+                  className={inputCls}
+                  placeholder="0.50"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Color</label>
+                <input
+                  value={gem.color}
+                  onChange={e => update(i, 'color', e.target.value)}
+                  className={inputCls}
+                  placeholder="D-Z / color"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Clarity</label>
+                <input
+                  value={gem.clarity}
+                  onChange={e => update(i, 'clarity', e.target.value)}
+                  className={inputCls}
+                  placeholder="VS1, SI2..."
+                />
+              </div>
+            </div>
+          )}
+
+          {gem.is_pave && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Total Carat Weight</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={gem.carat_weight ?? ''}
+                  onChange={e => update(i, 'carat_weight', e.target.value ? parseFloat(e.target.value) : null)}
+                  className={inputCls}
+                  placeholder="Total ctw"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Collective Value ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={gem.value ?? ''}
+                  onChange={e => update(i, 'value', e.target.value ? parseFloat(e.target.value) : null)}
+                  className={inputCls}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          )}
+
+          {!gem.is_pave && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelCls}>GIA Certificate #</label>
+                  <input
+                    value={gem.gia_number}
+                    onChange={e => update(i, 'gia_number', e.target.value)}
+                    className={inputCls}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Value ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={gem.value ?? ''}
+                    onChange={e => update(i, 'value', e.target.value ? parseFloat(e.target.value) : null)}
+                    className={inputCls}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ))}
 

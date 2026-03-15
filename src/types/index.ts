@@ -23,6 +23,10 @@ export interface Gemstone {
   color: string
   clarity: string
   gia_number: string
+  value: number | null
+  origin: 'natural' | 'lab' | ''
+  is_pave: boolean
+  quantity: number | null
 }
 
 export interface CropArea {
@@ -38,7 +42,7 @@ export interface JewelryPiece {
   name: string
   description: string | null
   category: Category
-  metal_type: 'gold' | 'silver' | 'platinum' | 'palladium' | 'other'
+  metal_type: 'gold' | 'yellow_gold' | 'white_gold' | 'rose_gold' | 'silver' | 'platinum' | 'palladium' | 'other'
   metal_weight_grams: number | null
   metal_karat: number | null
   gemstones: Gemstone[]

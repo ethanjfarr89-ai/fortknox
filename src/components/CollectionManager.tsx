@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import type { Collection } from '../types'
+import { useScrollLock } from '../lib/useScrollLock'
 
 interface Props {
   collections: Collection[]
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function CollectionManager({ collections, onAdd, onDelete, onClose }: Props) {
+  useScrollLock()
   const [name, setName] = useState('')
   const [adding, setAdding] = useState(false)
 

@@ -1,7 +1,7 @@
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
 import { CATEGORIES } from '../types'
-import { calculateMeltValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
 import CroppedImage from './CroppedImage'
 
 interface Props {
@@ -18,17 +18,20 @@ function fmtCurrency(val: number | null) {
 }
 
 const metalLabels: Record<string, string> = {
-  gold: 'Gold', silver: 'Silver', platinum: 'Platinum', palladium: 'Palladium', other: 'Other',
+  gold: 'Yellow Gold', yellow_gold: 'Yellow Gold', white_gold: 'White Gold', rose_gold: 'Rose Gold',
+  silver: 'Silver', platinum: 'Platinum', palladium: 'Palladium', other: 'Other',
 }
 
 function karatLabel(piece: JewelryPiece) {
-  if (piece.metal_type === 'gold' && piece.metal_karat) return `${piece.metal_karat}K`
+  if (isGoldType(piece.metal_type) && piece.metal_karat) return `${piece.metal_karat}K`
   if (piece.metal_type === 'silver' && piece.metal_karat) return `${piece.metal_karat}`
   return ''
 }
 
 export default function PieceCard({ piece, prices, valuationMode, onEdit, onDelete }: Props) {
-  const meltValue = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+  const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+  const gemValue = calculateGemstoneValue(piece.gemstones)
+  const meltValue = meltOnly != null ? meltOnly + gemValue : gemValue > 0 ? gemValue : null
   const displayValue = valuationMode === 'appraised' && piece.appraised_value != null
     ? piece.appraised_value
     : meltValue
@@ -101,7 +104,7 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
             </span>
           )}
           <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-            piece.metal_type === 'gold' ? 'bg-gold-400/15 text-gold-400' :
+            isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
             piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
             'bg-blue-900/30 text-blue-400'
           }`}>

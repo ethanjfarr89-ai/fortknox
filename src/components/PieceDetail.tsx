@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import { CATEGORIES } from '../types'
-import { calculateMeltValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
+import { useScrollLock } from '../lib/useScrollLock'
 import Lightbox from './Lightbox'
 import CroppedImage from './CroppedImage'
 
@@ -21,7 +22,8 @@ function fmtCurrency(val: number | null) {
 }
 
 const metalLabels: Record<string, string> = {
-  gold: 'Gold', silver: 'Silver', platinum: 'Platinum', palladium: 'Palladium', other: 'Other',
+  gold: 'Yellow Gold', yellow_gold: 'Yellow Gold', white_gold: 'White Gold', rose_gold: 'Rose Gold',
+  silver: 'Silver', platinum: 'Platinum', palladium: 'Palladium', other: 'Other',
 }
 
 function PhotoGallery({ label, icon, photos }: { label: string; icon: React.ReactNode; photos: string[] }) {
@@ -52,8 +54,11 @@ function PhotoGallery({ label, icon, photos }: { label: string; icon: React.Reac
 }
 
 export default function PieceDetail({ piece, prices, onClose, onEdit, pieceCollections, collections }: Props) {
+  useScrollLock()
   const [mainLightbox, setMainLightbox] = useState<number | null>(null)
-  const meltValue = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+  const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+  const gemValue = calculateGemstoneValue(piece.gemstones)
+  const meltValue = meltOnly != null ? meltOnly + gemValue : gemValue > 0 ? gemValue : null
   const categoryLabel = CATEGORIES.find(c => c.value === piece.category)?.label
 
   const meltRoi = (meltValue != null && piece.price_paid != null && piece.price_paid > 0)
@@ -168,11 +173,11 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-neutral-800 text-neutral-300">{categoryLabel}</span>
             )}
             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-              piece.metal_type === 'gold' ? 'bg-gold-400/15 text-gold-400' :
+              isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
               piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
               'bg-blue-900/30 text-blue-400'
             }`}>
-              {metalLabels[piece.metal_type]} {piece.metal_type === 'gold' && piece.metal_karat ? `${piece.metal_karat}K` : ''}
+              {metalLabels[piece.metal_type]} {isGoldType(piece.metal_type) && piece.metal_karat ? `${piece.metal_karat}K` : ''}
             </span>
             {piece.metal_weight_grams && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-neutral-800 text-neutral-300">
@@ -249,13 +254,23 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
               <div className="space-y-2">
                 {piece.gemstones.map((gem, i) => (
                   <div key={i} className="bg-neutral-800 rounded-lg p-3 text-sm text-neutral-300">
-                    <div className="font-medium text-white">
-                      {gem.stone_type}{gem.carat_weight ? ` — ${gem.carat_weight}ct` : ''}
+                    <div className="font-medium text-white flex items-center gap-2">
+                      <span>
+                        {gem.is_pave && gem.quantity ? `${gem.quantity}× ` : ''}
+                        {gem.stone_type}
+                        {gem.carat_weight ? ` — ${gem.carat_weight}ct${gem.is_pave ? 'w' : ''}` : ''}
+                      </span>
+                      {gem.is_pave && <span className="text-xs px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-400">Pavé</span>}
+                      {gem.origin === 'lab' && <span className="text-xs px-1.5 py-0.5 bg-blue-900/30 rounded text-blue-400">Lab</span>}
+                      {gem.origin === 'natural' && <span className="text-xs px-1.5 py-0.5 bg-emerald-900/30 rounded text-emerald-400">Natural</span>}
                     </div>
-                    <div className="text-xs text-neutral-400 mt-0.5">
-                      {[gem.cut, gem.color && `Color: ${gem.color}`, gem.clarity && `Clarity: ${gem.clarity}`].filter(Boolean).join(' · ')}
-                    </div>
+                    {!gem.is_pave && (
+                      <div className="text-xs text-neutral-400 mt-0.5">
+                        {[gem.cut, gem.color && `Color: ${gem.color}`, gem.clarity && `Clarity: ${gem.clarity}`].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
                     {gem.gia_number && <div className="text-xs text-neutral-500 mt-0.5">GIA: {gem.gia_number}</div>}
+                    {gem.value != null && <div className="text-xs text-gold-400 mt-0.5">Value: {fmtCurrency(gem.value)}</div>}
                   </div>
                 ))}
               </div>

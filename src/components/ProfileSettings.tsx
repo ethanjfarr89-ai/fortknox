@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Camera, Save, X, Shield } from 'lucide-react'
 import type { UserProfile, CropArea, PrivacySettings, PrivacyLevel } from '../types'
 import { supabase } from '../lib/supabase'
+import { useScrollLock } from '../lib/useScrollLock'
 import ImageCropper from './ImageCropper'
 
 interface Props {
@@ -43,6 +44,7 @@ function PrivacyRow({ label, description, value, onChange }: { label: string; de
 }
 
 export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
+  useScrollLock()
   const [displayName, setDisplayName] = useState(profile.display_name ?? '')
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? '')
   const [showCropper, setShowCropper] = useState(false)

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useScrollLock } from '../lib/useScrollLock'
 
 interface Props {
   photos: string[]
@@ -9,6 +10,10 @@ interface Props {
 
 export default function Lightbox({ photos, initialIndex, onClose }: Props) {
   const [index, setIndex] = useState(initialIndex)
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+
+  useScrollLock()
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -20,8 +25,36 @@ export default function Lightbox({ photos, initialIndex, onClose }: Props) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [photos.length, onClose])
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current
+
+    // Only swipe if horizontal movement > vertical and > 50px threshold
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        setIndex(i => (i < photos.length - 1 ? i + 1 : 0))
+      } else {
+        setIndex(i => (i > 0 ? i - 1 : photos.length - 1))
+      }
+    }
+
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
   return (
-    <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center"
+      onClick={onClose}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition z-10">
         <X className="w-6 h-6" />
       </button>

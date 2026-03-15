@@ -1,4 +1,4 @@
-import type { SpotPrices } from '../types'
+import type { SpotPrices, Gemstone } from '../types'
 
 const CACHE_KEY = 'fortknox_spot_prices'
 const FALLBACK_KEY = 'fortknox_spot_prices_fallback'
@@ -166,6 +166,9 @@ export function calculateMeltValue(
 
   switch (metalType) {
     case 'gold':
+    case 'yellow_gold':
+    case 'white_gold':
+    case 'rose_gold':
       pricePerOz = spotPrices.gold
       purity = (karat ?? 24) / 24
       break
@@ -189,4 +192,24 @@ export function calculateMeltValue(
 
   const troyOz = weightGrams / GRAMS_PER_TROY_OZ
   return troyOz * pricePerOz * purity
+}
+
+/** Sum of all gemstone values on a piece */
+export function calculateGemstoneValue(gemstones: Gemstone[] | undefined | null): number {
+  if (!gemstones?.length) return 0
+  let total = 0
+  for (const g of gemstones) {
+    if (g.value != null) total += g.value
+  }
+  return total
+}
+
+/** True if this metal_type is a gold variant */
+export function isGoldType(metalType: string): boolean {
+  return metalType === 'gold' || metalType === 'yellow_gold' || metalType === 'white_gold' || metalType === 'rose_gold'
+}
+
+/** Normalize legacy 'gold' to 'yellow_gold' */
+export function normalizeMetalType(metalType: string): string {
+  return metalType === 'gold' ? 'yellow_gold' : metalType
 }

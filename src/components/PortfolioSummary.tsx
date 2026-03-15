@@ -1,6 +1,6 @@
 import { TrendingUp } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
-import { calculateMeltValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 
 interface Props {
   pieces: JewelryPiece[]
@@ -23,8 +23,10 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
       piecesWithValue++
     } else {
       const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
-      if (melt != null) {
-        totalValue += melt
+      const gemVal = calculateGemstoneValue(piece.gemstones)
+      const pieceTotal = (melt ?? 0) + gemVal
+      if (melt != null || gemVal > 0) {
+        totalValue += pieceTotal
         piecesWithValue++
       }
     }

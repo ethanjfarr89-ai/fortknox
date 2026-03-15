@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Check, X, Users, ChevronRight, User } from 'lucide-react'
 import type { Friendship, UserProfile } from '../types'
+import { useScrollLock } from '../lib/useScrollLock'
 
 interface Props {
   friends: Friendship[]
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function FriendsPanel({ friends, pending, userId, onSendRequest, onSearchProfiles, onRespond, onRemove, onClose }: Props) {
+  useScrollLock()
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserProfile[]>([])
   const [searching, setSearching] = useState(false)

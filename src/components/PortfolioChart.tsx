@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
-import { calculateMeltValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 import { useHistoricalPrices } from '../lib/useHistoricalPrices'
 
 interface Props {
@@ -28,7 +28,8 @@ function getAcquisitionDate(piece: JewelryPiece): string | null {
 
 function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationMode): number {
   if (mode === 'appraised' && piece.appraised_value != null) return piece.appraised_value
-  return calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices) ?? 0
+  const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices) ?? 0
+  return melt + calculateGemstoneValue(piece.gemstones)
 }
 
 export default function PortfolioChart({ pieces, prices, valuationMode }: Props) {

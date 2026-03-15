@@ -9,7 +9,7 @@ import { useProfile } from '../lib/useProfile'
 import { useCollections } from '../lib/useCollections'
 import { useStylingBoards } from '../lib/useStylingBoards'
 import { useFriends } from '../lib/useFriends'
-import { calculateMeltValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 import Header from '../components/Header'
 import SpotPriceBar from '../components/SpotPriceBar'
 import PortfolioSummary from '../components/PortfolioSummary'
@@ -62,7 +62,9 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     let totalAppraised = 0
     for (const piece of collectionPieces) {
       const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
-      if (melt != null) totalMelt += melt
+      const gemVal = calculateGemstoneValue(piece.gemstones)
+      if (melt != null) totalMelt += melt + gemVal
+      else if (gemVal > 0) totalMelt += gemVal
       if (piece.appraised_value != null) totalAppraised += piece.appraised_value
     }
     saveSnapshot(totalMelt, totalAppraised)
