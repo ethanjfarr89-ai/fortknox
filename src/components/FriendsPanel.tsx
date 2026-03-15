@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Check, X, Users, ChevronRight, User } from 'lucide-react'
 import type { Friendship, UserProfile, SpotPrices, JewelryPiece } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
+import CroppedImage from './CroppedImage'
 import FriendProfile from './FriendProfile'
 
 interface Props {
@@ -109,7 +110,7 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-700 transition text-left"
                       >
                         {profile.avatar_url ? (
-                          <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-neutral-600" />
+                          <CroppedImage src={profile.avatar_url} alt="" crop={profile.avatar_crop} className="w-8 h-8 rounded-full object-cover shrink-0 border border-neutral-600" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center shrink-0">
                             <User className="w-3.5 h-3.5 text-neutral-400" />
@@ -138,7 +139,7 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                   <div key={f.id} className="flex items-center justify-between bg-neutral-800 rounded-lg p-3">
                     <div className="flex items-center gap-2">
                       {f.friend_profile?.avatar_url ? (
-                        <img src={f.friend_profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
+                        <CroppedImage src={f.friend_profile.avatar_url} alt="" crop={f.friend_profile.avatar_crop} className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center">
                           <User className="w-3.5 h-3.5 text-neutral-400" />
@@ -169,7 +170,7 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                   <div key={f.id} className="flex items-center justify-between bg-neutral-800 rounded-lg p-3">
                     <div className="flex items-center gap-2">
                       {f.friend_profile?.avatar_url ? (
-                        <img src={f.friend_profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
+                        <CroppedImage src={f.friend_profile.avatar_url} alt="" crop={f.friend_profile.avatar_crop} className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center">
                           <User className="w-3.5 h-3.5 text-neutral-400" />
@@ -199,7 +200,7 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                   >
                     <div className="flex items-center gap-2">
                       {f.friend_profile?.avatar_url ? (
-                        <img src={f.friend_profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
+                        <CroppedImage src={f.friend_profile.avatar_url} alt="" crop={f.friend_profile.avatar_crop} className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-sm font-medium text-gold-400">
                           {(f.friend_profile?.display_name ?? '?')[0]?.toUpperCase()}

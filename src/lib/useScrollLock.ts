@@ -1,9 +1,16 @@
 import { useEffect } from 'react'
 
+let lockCount = 0
+
 export function useScrollLock() {
   useEffect(() => {
-    const original = document.body.style.overflow
+    lockCount++
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = original }
+    return () => {
+      lockCount--
+      if (lockCount === 0) {
+        document.body.style.overflow = ''
+      }
+    }
   }, [])
 }
