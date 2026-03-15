@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, FolderOpen, Settings, ArrowUpDown, Share2, Gem } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category } from '../types'
 import { CATEGORIES } from '../types'
 import { usePieces } from '../lib/usePieces'
@@ -131,6 +131,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   }
 
   const portfolioLabel = profile?.display_name ? `${profile.display_name}'s Trove` : 'My Trove'
+  const selectedCollectionShares = selectedCollection ? (shares[selectedCollection] ?? []) : []
+  const selectedCollectionName = selectedCollection ? collections.find(c => c.id === selectedCollection)?.name : null
 
   // Collect all unique styling photos across pieces for the "add existing" feature
   const allStylingPhotos = useMemo(() => {
@@ -226,6 +228,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               </button>
             </div>
           )}
+          {/* Sharing info for selected collection */}
+          {tab === 'portfolio' && selectedCollection && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowCollections(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-800 border border-neutral-700 hover:border-gold-400/40 transition text-neutral-300"
+              >
+                <Share2 className="w-3 h-3 text-gold-400" />
+                {selectedCollectionShares.length > 0
+                  ? `Shared with ${selectedCollectionShares.length} friend${selectedCollectionShares.length > 1 ? 's' : ''}`
+                  : 'Not shared'}
+              </button>
+            </div>
+          )}
           {tab === 'portfolio' && collections.length === 0 && (
             <button
               onClick={() => setShowCollections(true)}
@@ -299,28 +315,50 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                   className="w-full pl-10 pr-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500"
                 />
               </div>
-              <button
-                onClick={() => { setEditingPiece(null); setShowForm(true) }}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                {tab === 'wishlist' ? 'Add to Wishlist' : 'Add Piece'}
-              </button>
+              {selectedCollection ? (
+                <button
+                  onClick={() => setShowCollections(true)}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Existing Pieces
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setEditingPiece(null); setShowForm(true) }}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  {tab === 'wishlist' ? 'Add to Wishlist' : 'Add Piece'}
+                </button>
+              )}
             </div>
 
             {loading ? (
               <div className="text-center py-16 text-neutral-500">Loading...</div>
             ) : sorted.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-neutral-500">
-                  {activePieces.length === 0
-                    ? tab === 'wishlist'
-                      ? 'Your wishlist is empty.'
-                      : selectedCollection
-                        ? 'No pieces in this collection yet.'
-                        : 'No pieces yet. Add your first piece!'
-                    : 'No pieces match your search.'}
-                </p>
+                {activePieces.length === 0 ? (
+                  tab === 'wishlist' ? (
+                    <p className="text-neutral-500">Your wishlist is empty.</p>
+                  ) : selectedCollection ? (
+                    <div className="space-y-3">
+                      <Gem className="w-10 h-10 text-neutral-700 mx-auto" />
+                      <p className="text-neutral-500">No pieces in "{selectedCollectionName}" yet.</p>
+                      <button
+                        onClick={() => setShowCollections(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Existing Pieces
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-neutral-500">No pieces yet. Add your first piece!</p>
+                  )
+                ) : (
+                  <p className="text-neutral-500">No pieces match your search.</p>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -335,6 +373,16 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                     />
                   </div>
                 ))}
+                {/* Add piece card at end of collection view */}
+                {selectedCollection && (
+                  <button
+                    onClick={() => setShowCollections(true)}
+                    className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-neutral-700 rounded-xl p-8 hover:border-gold-400/40 hover:bg-neutral-900/50 transition cursor-pointer min-h-[200px]"
+                  >
+                    <Plus className="w-8 h-8 text-neutral-600" />
+                    <span className="text-sm text-neutral-500">Add Existing Pieces</span>
+                  </button>
+                )}
               </div>
             )}
           </>
