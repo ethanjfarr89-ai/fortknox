@@ -7,6 +7,8 @@ export const CATEGORIES = [
   { value: 'pendant', label: 'Pendant / Charm' },
   { value: 'earring', label: 'Earrings' },
   { value: 'watch', label: 'Watch' },
+  { value: 'brooch', label: 'Brooch' },
+  { value: 'bullion', label: 'Bullion / Nuggets' },
   { value: 'bits', label: 'Bits & Bobs' },
 ] as const
 

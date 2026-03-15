@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, FolderOpen, Settings, ArrowUpDown } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category } from '../types'
 import { CATEGORIES } from '../types'
@@ -130,6 +130,15 @@ export default function Dashboard({ userId, onSignOut }: Props) {
 
   const portfolioLabel = profile?.display_name ? `${profile.display_name}'s Portfolio` : 'Portfolio'
 
+  // Collect all unique styling photos across pieces for the "add existing" feature
+  const allStylingPhotos = useMemo(() => {
+    const urls = new Set<string>()
+    for (const p of pieces) {
+      if (p.styling_photo_urls) p.styling_photo_urls.forEach(u => urls.add(u))
+    }
+    return Array.from(urls)
+  }, [pieces])
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <Header
@@ -145,12 +154,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         {tab === 'portfolio' && (
           <>
             <PortfolioSummary
-              pieces={selectedCollection ? activePieces : collectionPieces}
+              pieces={activePieces}
               prices={prices}
               valuationMode={valuationMode}
               onToggleMode={() => setValuationMode(m => m === 'melt' ? 'appraised' : 'melt')}
             />
-            <PortfolioChart pieces={selectedCollection ? activePieces : collectionPieces} prices={prices} valuationMode={valuationMode} />
+            <PortfolioChart pieces={activePieces} prices={prices} valuationMode={valuationMode} />
           </>
         )}
 
@@ -341,6 +350,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           pieceCollections={editingPiece ? pieceCollectionMap[editingPiece.id] : undefined}
           onAssignCollection={editingPiece ? (cid) => assignPiece(editingPiece.id, cid) : undefined}
           onUnassignCollection={editingPiece ? (cid) => unassignPiece(editingPiece.id, cid) : undefined}
+          allStylingPhotos={allStylingPhotos}
         />
       )}
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { CropArea } from '../types'
 
 interface Props {
@@ -8,32 +9,41 @@ interface Props {
 }
 
 export default function CroppedImage({ src, alt, crop, className = '' }: Props) {
-  if (!crop || (crop.width === 100 && crop.height === 100 && crop.x === 0 && crop.y === 0)) {
-    return <img src={src} alt={alt} className={className} />
-  }
+  const [croppedSrc, setCroppedSrc] = useState(src)
 
-  // crop is percentage-based: {x, y, width, height} where values are 0-100
-  // We render the image inside a clipping container
-  const scale = 100 / crop.width
-  const translateX = -crop.x * scale
-  const translateY = -crop.y * scale
+  useEffect(() => {
+    if (!crop || crop.width >= 99.9) {
+      setCroppedSrc(src)
+      return
+    }
 
-  return (
-    <div className={`overflow-hidden ${className}`} style={{ position: 'relative' }}>
-      <img
-        src={src}
-        alt={alt}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: `${scale * 100}%`,
-          height: `${scale * 100}%`,
-          transform: `translate(${translateX}%, ${translateY}%)`,
-          transformOrigin: 'top left',
-          objectFit: 'cover',
-        }}
-      />
-    </div>
-  )
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { setCroppedSrc(src); return }
+
+      // crop values are percentages (0-100) of the original image
+      const sx = (crop.x / 100) * img.naturalWidth
+      const sy = (crop.y / 100) * img.naturalHeight
+      const sw = (crop.width / 100) * img.naturalWidth
+      const sh = (crop.height / 100) * img.naturalHeight
+
+      canvas.width = sw
+      canvas.height = sh
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+
+      try {
+        setCroppedSrc(canvas.toDataURL('image/jpeg', 0.9))
+      } catch {
+        // CORS blocked canvas - fall back to original
+        setCroppedSrc(src)
+      }
+    }
+    img.onerror = () => setCroppedSrc(src)
+    img.src = src
+  }, [src, crop])
+
+  return <img src={croppedSrc} alt={alt} className={className} />
 }

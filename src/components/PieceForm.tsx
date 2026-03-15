@@ -14,6 +14,7 @@ interface Props {
   pieceCollections?: string[]
   onAssignCollection?: (collectionId: string) => void
   onUnassignCollection?: (collectionId: string) => void
+  allStylingPhotos?: string[]
 }
 
 const metalOptions = [
@@ -24,7 +25,7 @@ const metalOptions = [
   { value: 'other', label: 'Other' },
 ]
 
-export default function PieceForm({ piece, onSave, onClose, defaultWishlist, collections, pieceCollections, onAssignCollection, onUnassignCollection }: Props) {
+export default function PieceForm({ piece, onSave, onClose, defaultWishlist, collections, pieceCollections, onAssignCollection, onUnassignCollection, allStylingPhotos }: Props) {
   // Core
   const [name, setName] = useState(piece?.name ?? '')
   const [description, setDescription] = useState(piece?.description ?? '')
@@ -467,6 +468,7 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
             label="Styling Examples"
             urls={stylingPhotoUrls}
             onChange={setStylingPhotoUrls}
+            existingPhotos={allStylingPhotos}
           />
 
           <PhotoManager

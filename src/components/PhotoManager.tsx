@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Upload, Star, Crop } from 'lucide-react'
+import { X, Upload, Star, Crop, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { CropArea } from '../types'
 import ImageCropper from './ImageCropper'
@@ -13,11 +13,13 @@ interface Props {
   onCropProfile?: (crop: CropArea) => void
   profileCrop?: CropArea | null
   showProfileSelect?: boolean
+  existingPhotos?: string[]
 }
 
-export default function PhotoManager({ label, urls, onChange, profileIndex, onSetProfile, onCropProfile, profileCrop, showProfileSelect }: Props) {
+export default function PhotoManager({ label, urls, onChange, profileIndex, onSetProfile, onCropProfile, profileCrop, showProfileSelect, existingPhotos }: Props) {
   const [uploading, setUploading] = useState(false)
   const [cropIndex, setCropIndex] = useState<number | null>(null)
+  const [showExisting, setShowExisting] = useState(false)
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -52,7 +54,6 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
   const remove = (index: number) => {
     const updated = urls.filter((_, i) => i !== index)
     onChange(updated)
-    // Adjust profile index if needed
     if (showProfileSelect && onSetProfile && profileIndex !== undefined) {
       if (index === profileIndex) {
         onSetProfile(0)
@@ -61,6 +62,15 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
       }
     }
   }
+
+  const addExisting = (url: string) => {
+    if (!urls.includes(url)) {
+      onChange([...urls, url])
+    }
+  }
+
+  // Filter out photos already added
+  const availableExisting = existingPhotos?.filter(url => !urls.includes(url)) ?? []
 
   return (
     <div>
@@ -110,18 +120,50 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
           ))}
         </div>
       )}
-      <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-gold-400 transition text-sm text-neutral-500">
-        <Upload className="w-4 h-4" />
-        {uploading ? 'Uploading...' : `Upload ${label.toLowerCase()}`}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleUpload}
-          className="hidden"
-          disabled={uploading}
-        />
-      </label>
+      <div className="flex gap-2">
+        <label className="flex-1 flex items-center gap-2 px-4 py-3 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-gold-400 transition text-sm text-neutral-500">
+          <Upload className="w-4 h-4" />
+          {uploading ? 'Uploading...' : `Upload ${label.toLowerCase()}`}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleUpload}
+            className="hidden"
+            disabled={uploading}
+          />
+        </label>
+        {availableExisting.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowExisting(!showExisting)}
+            className={`flex items-center gap-1.5 px-3 py-2 border-2 border-dashed rounded-lg text-sm transition ${
+              showExisting ? 'border-gold-400 text-gold-400' : 'border-neutral-700 text-neutral-500 hover:border-gold-400'
+            }`}
+          >
+            <ImageIcon className="w-4 h-4" />
+            Existing
+          </button>
+        )}
+      </div>
+
+      {showExisting && availableExisting.length > 0 && (
+        <div className="mt-2 p-2 bg-neutral-800 rounded-lg">
+          <p className="text-xs text-neutral-500 mb-2">Click to add an existing styling photo</p>
+          <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto">
+            {availableExisting.map(url => (
+              <button
+                key={url}
+                type="button"
+                onClick={() => { addExisting(url); }}
+                className="aspect-square rounded overflow-hidden border border-neutral-700 hover:border-gold-400 transition"
+              >
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {cropIndex !== null && urls[cropIndex] && onCropProfile && (
         <ImageCropper
