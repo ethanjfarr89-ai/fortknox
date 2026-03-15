@@ -21,6 +21,8 @@ import StylingBoards from '../components/StylingBoards'
 import ProfileSettings from '../components/ProfileSettings'
 import FriendsPanel from '../components/FriendsPanel'
 import CollectionManager from '../components/CollectionManager'
+import PiecePicker from '../components/PiecePicker'
+import CollectionSharePicker from '../components/CollectionSharePicker'
 
 interface Props {
   userId: string
@@ -47,6 +49,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showProfile, setShowProfile] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
   const [showCollections, setShowCollections] = useState(false)
+  const [showPiecePicker, setShowPiecePicker] = useState(false)
+  const [showSharePicker, setShowSharePicker] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight'>('name')
@@ -232,7 +236,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           {tab === 'portfolio' && selectedCollection && (
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => setShowCollections(true)}
+                onClick={() => setShowSharePicker(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-800 border border-neutral-700 hover:border-gold-400/40 transition text-neutral-300"
               >
                 <Share2 className="w-3 h-3 text-gold-400" />
@@ -317,7 +321,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               </div>
               {selectedCollection ? (
                 <button
-                  onClick={() => setShowCollections(true)}
+                  onClick={() => setShowPiecePicker(true)}
                   className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm shrink-0"
                 >
                   <Plus className="w-4 h-4" />
@@ -376,7 +380,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                 {/* Add piece card at end of collection view */}
                 {selectedCollection && (
                   <button
-                    onClick={() => setShowCollections(true)}
+                    onClick={() => setShowPiecePicker(true)}
                     className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-neutral-700 rounded-xl p-8 hover:border-gold-400/40 hover:bg-neutral-900/50 transition cursor-pointer min-h-[200px]"
                   >
                     <Plus className="w-8 h-8 text-neutral-600" />
@@ -455,6 +459,33 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onShare={shareCollection}
           onUnshare={unshareCollection}
           onClose={() => setShowCollections(false)}
+        />
+      )}
+
+      {showPiecePicker && selectedCollection && (
+        <PiecePicker
+          collectionName={selectedCollectionName ?? ''}
+          pieces={collectionPieces}
+          assignedPieceIds={
+            Object.entries(pieceCollectionMap)
+              .filter(([, colIds]) => colIds.includes(selectedCollection))
+              .map(([pieceId]) => pieceId)
+          }
+          onAssign={(pieceId) => assignPiece(pieceId, selectedCollection)}
+          onUnassign={(pieceId) => unassignPiece(pieceId, selectedCollection)}
+          onClose={() => setShowPiecePicker(false)}
+        />
+      )}
+
+      {showSharePicker && selectedCollection && (
+        <CollectionSharePicker
+          collectionName={selectedCollectionName ?? ''}
+          friends={friends}
+          userId={userId}
+          sharedWith={selectedCollectionShares}
+          onShare={(friendId) => shareCollection(selectedCollection, friendId)}
+          onUnshare={(friendId) => unshareCollection(selectedCollection, friendId)}
+          onClose={() => setShowSharePicker(false)}
         />
       )}
     </div>
