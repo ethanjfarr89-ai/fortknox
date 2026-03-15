@@ -321,7 +321,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                   className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm shrink-0"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Existing Pieces
+                  Add from Trove
                 </button>
               ) : (
                 <button
@@ -350,7 +350,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                         className="inline-flex items-center gap-2 px-4 py-2 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
                       >
                         <Plus className="w-4 h-4" />
-                        Add Existing Pieces
+                        Add from Trove
                       </button>
                     </div>
                   ) : (
@@ -380,7 +380,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                     className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-neutral-700 rounded-xl p-8 hover:border-gold-400/40 hover:bg-neutral-900/50 transition cursor-pointer min-h-[200px]"
                   >
                     <Plus className="w-8 h-8 text-neutral-600" />
-                    <span className="text-sm text-neutral-500">Add Existing Pieces</span>
+                    <span className="text-sm text-neutral-500">Add from Trove</span>
                   </button>
                 )}
               </div>
