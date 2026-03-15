@@ -11,12 +11,13 @@ interface Props {
 }
 
 export default function ImageCropper({ imageUrl, initialCrop, aspect = 1, onSave, onCancel }: Props) {
-  const [crop, setCrop] = useState({ x: initialCrop?.x ?? 0, y: initialCrop?.y ?? 0 })
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
-  const [croppedArea, setCroppedArea] = useState<CropArea | null>(null)
+  const [croppedAreaPercent, setCroppedAreaPercent] = useState<CropArea | null>(initialCrop ?? null)
 
-  const onCropComplete = useCallback((_: unknown, croppedAreaPixels: CropArea) => {
-    setCroppedArea(croppedAreaPixels)
+  const onCropComplete = useCallback((croppedArea: CropArea) => {
+    // croppedArea is percentage-based {x, y, width, height} (0-100)
+    setCroppedAreaPercent(croppedArea)
   }, [])
 
   return (
@@ -59,7 +60,7 @@ export default function ImageCropper({ imageUrl, initialCrop, aspect = 1, onSave
             Cancel
           </button>
           <button
-            onClick={() => croppedArea && onSave(croppedArea)}
+            onClick={() => croppedAreaPercent && onSave(croppedAreaPercent)}
             className="px-4 py-2 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
           >
             Save Crop

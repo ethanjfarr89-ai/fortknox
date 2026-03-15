@@ -2,6 +2,7 @@ import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown } fr
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue } from '../lib/prices'
+import CroppedImage from './CroppedImage'
 
 interface Props {
   piece: JewelryPiece
@@ -48,7 +49,12 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
       {/* Photo */}
       <div className="aspect-square bg-neutral-800 relative overflow-hidden">
         {photoUrl ? (
-          <img src={photoUrl} alt={piece.name} className="w-full h-full object-cover" />
+          <CroppedImage
+            src={photoUrl}
+            alt={piece.name}
+            crop={piece.profile_photo_crop}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Gem className="w-12 h-12 text-neutral-700" />

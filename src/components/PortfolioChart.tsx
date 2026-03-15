@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import type { PortfolioSnapshot, ValuationMode } from '../types'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
+import { calculateMeltValue } from '../lib/prices'
 
 interface Props {
-  snapshots: PortfolioSnapshot[]
+  pieces: JewelryPiece[]
+  prices: SpotPrices
   valuationMode: ValuationMode
 }
 
@@ -17,32 +19,108 @@ const ranges = [
   { label: 'ALL', days: 0 },
 ] as const
 
-export default function PortfolioChart({ snapshots, valuationMode }: Props) {
+function getAcquisitionDate(piece: JewelryPiece): string | null {
+  if (piece.acquisition_type === 'purchased' && piece.date_purchased) return piece.date_purchased
+  if (piece.date_received) return piece.date_received
+  return piece.created_at?.split('T')[0] ?? null
+}
+
+function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationMode): number {
+  if (mode === 'appraised' && piece.appraised_value != null) return piece.appraised_value
+  return calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices) ?? 0
+}
+
+export default function PortfolioChart({ pieces, prices, valuationMode }: Props) {
   const [range, setRange] = useState<string>('ALL')
 
   const data = useMemo(() => {
-    if (snapshots.length < 2) return []
+    if (pieces.length === 0) return []
 
+    // Build timeline: for each piece, determine when it was acquired
+    const events: { date: string; value: number }[] = []
+    for (const piece of pieces) {
+      const date = getAcquisitionDate(piece)
+      if (!date) continue
+      const value = getPieceValue(piece, prices, valuationMode)
+      events.push({ date, value })
+    }
+
+    if (events.length === 0) return []
+
+    // Sort by date
+    events.sort((a, b) => a.date.localeCompare(b.date))
+
+    // Build cumulative timeline
+    const timeline: { date: string; value: number }[] = []
+    let cumulative = 0
+
+    // Add a zero point the day before the first acquisition
+    const firstDate = new Date(events[0].date)
+    firstDate.setDate(firstDate.getDate() - 1)
+    timeline.push({ date: firstDate.toISOString().split('T')[0], value: 0 })
+
+    // Group events by date and accumulate
+    for (const event of events) {
+      cumulative += event.value
+      // If same date as last point, update it; otherwise add new point
+      if (timeline.length > 0 && timeline[timeline.length - 1].date === event.date) {
+        timeline[timeline.length - 1].value = cumulative
+      } else {
+        timeline.push({ date: event.date, value: cumulative })
+      }
+    }
+
+    // Add today's point at current cumulative value
+    const today = new Date().toISOString().split('T')[0]
+    if (timeline[timeline.length - 1].date !== today) {
+      timeline.push({ date: today, value: cumulative })
+    }
+
+    // Apply range filter
     const selectedRange = ranges.find(r => r.label === range)
     const cutoff = selectedRange && selectedRange.days > 0
       ? new Date(Date.now() - selectedRange.days * 24 * 60 * 60 * 1000)
       : null
 
-    return snapshots
-      .filter(s => !cutoff || new Date(s.recorded_at) >= cutoff)
-      .map(s => ({
-        date: new Date(s.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: valuationMode === 'melt' ? s.total_melt_value : s.total_appraised_value,
-      }))
-  }, [snapshots, valuationMode, range])
+    let filtered = cutoff
+      ? timeline.filter(p => new Date(p.date) >= cutoff)
+      : timeline
 
-  if (snapshots.length < 2) {
+    // If range filter removed all points, find the cumulative value just before cutoff
+    if (filtered.length === 0 && cutoff) {
+      const beforeCutoff = timeline.filter(p => new Date(p.date) < cutoff)
+      const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
+      filtered = [
+        { date: cutoff.toISOString().split('T')[0], value: baseValue },
+        { date: today, value: cumulative },
+      ]
+    } else if (filtered.length === 1) {
+      // Need at least 2 points - add the value just before cutoff
+      if (cutoff) {
+        const beforeCutoff = timeline.filter(p => new Date(p.date) < cutoff)
+        const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
+        filtered = [{ date: cutoff.toISOString().split('T')[0], value: baseValue }, ...filtered]
+      }
+    }
+
+    return filtered.map(p => ({
+      date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: filtered.length > 365 ? '2-digit' : undefined }),
+      value: Math.round(p.value * 100) / 100,
+    }))
+  }, [pieces, prices, valuationMode, range])
+
+  if (pieces.length === 0) {
     return (
       <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 text-center">
-        <p className="text-sm text-neutral-500">
-          Portfolio chart will appear once you have a few days of data.
-          {snapshots.length === 0 ? ' Value snapshots are recorded daily.' : ' Come back tomorrow!'}
-        </p>
+        <p className="text-sm text-neutral-500">Add pieces to see your portfolio chart.</p>
+      </div>
+    )
+  }
+
+  if (data.length < 2) {
+    return (
+      <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 text-center">
+        <p className="text-sm text-neutral-500">Add acquisition dates to your pieces to see the portfolio chart.</p>
       </div>
     )
   }
@@ -52,6 +130,7 @@ export default function PortfolioChart({ snapshots, valuationMode }: Props) {
   const max = Math.max(...values)
   const padding = (max - min) * 0.1 || 100
   const isUp = values.length >= 2 && values[values.length - 1] >= values[0]
+  const color = isUp ? '#34d399' : '#f87171'
 
   return (
     <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
@@ -73,50 +152,60 @@ export default function PortfolioChart({ snapshots, valuationMode }: Props) {
           ))}
         </div>
       </div>
-      <div className="h-48">
+      <div className="h-52">
         {data.length < 2 ? (
           <div className="flex items-center justify-center h-full text-sm text-neutral-500">
             Not enough data for this time range.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <XAxis
                 dataKey="date"
-                tick={{ fill: '#737373', fontSize: 11 }}
-                axisLine={{ stroke: '#404040' }}
+                tick={{ fill: '#525252', fontSize: 11 }}
+                axisLine={false}
                 tickLine={false}
+                minTickGap={40}
               />
               <YAxis
                 domain={[Math.floor(min - padding), Math.ceil(max + padding)]}
-                tick={{ fill: '#737373', fontSize: 11 }}
+                tick={{ fill: '#525252', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={v => `$${(v / 1000).toFixed(1)}k`}
+                tickFormatter={v => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`}
                 width={55}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#171717',
-                  border: '1px solid #404040',
+                  border: '1px solid #333',
                   borderRadius: '8px',
                   color: '#fff',
                   fontSize: '13px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                 }}
                 formatter={(value) => [
                   `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                   'Value'
                 ]}
+                cursor={{ stroke: '#525252', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="value"
-                stroke={isUp ? '#34d399' : '#f87171'}
+                stroke={color}
                 strokeWidth={2}
+                fill="url(#chartGradient)"
                 dot={false}
-                activeDot={{ r: 4, fill: isUp ? '#34d399' : '#f87171' }}
+                activeDot={{ r: 5, fill: color, stroke: '#171717', strokeWidth: 2 }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         )}
       </div>

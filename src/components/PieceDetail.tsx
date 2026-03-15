@@ -4,6 +4,7 @@ import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue } from '../lib/prices'
 import Lightbox from './Lightbox'
+import CroppedImage from './CroppedImage'
 
 interface Props {
   piece: JewelryPiece
@@ -117,7 +118,7 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
             className="aspect-video overflow-hidden rounded-t-2xl bg-neutral-800 cursor-pointer"
             onClick={() => setMainLightbox(piece.profile_photo_index ?? 0)}
           >
-            <img src={profilePhoto} alt={piece.name} className="w-full h-full object-cover" />
+            <CroppedImage src={profilePhoto} alt={piece.name} crop={piece.profile_photo_crop} className="w-full h-full object-cover" />
           </div>
         ) : (
           <div className="h-40 bg-neutral-800 rounded-t-2xl flex items-center justify-center">

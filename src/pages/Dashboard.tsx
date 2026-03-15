@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, FolderOpen, Settings } from 'lucide-react'
-import type { JewelryPiece, JewelryPieceInsert, ValuationMode } from '../types'
+import { Plus, Search, FolderOpen, Settings, ArrowUpDown } from 'lucide-react'
+import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category } from '../types'
+import { CATEGORIES } from '../types'
 import { usePieces } from '../lib/usePieces'
 import { useSpotPrices } from '../lib/useSpotPrices'
 import { useSnapshots } from '../lib/useSnapshots'
@@ -31,7 +32,7 @@ type Tab = 'portfolio' | 'wishlist' | 'styling'
 export default function Dashboard({ userId, onSignOut }: Props) {
   const { pieces, loading, addPiece, updatePiece, deletePiece } = usePieces(userId)
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
-  const { snapshots, saveSnapshot } = useSnapshots(userId)
+  const { saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
   const { collections, pieceCollectionMap, addCollection, deleteCollection, assignPiece, unassignPiece } = useCollections(userId)
   const { boards, addBoard, deleteBoard } = useStylingBoards(userId)
@@ -47,6 +48,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showFriends, setShowFriends] = useState(false)
   const [showCollections, setShowCollections] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight'>('name')
 
   const incomingRequests = pending.filter(f => f.addressee_id === userId)
 
@@ -77,12 +80,34 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     activePieces = activePieces.filter(p => pieceIdsInCollection.includes(p.id))
   }
 
+  // Filter by category
+  if (selectedCategory) {
+    activePieces = activePieces.filter(p => p.category === selectedCategory)
+  }
+
   const filtered = activePieces.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.metal_type.toLowerCase().includes(search.toLowerCase()) ||
     p.category.toLowerCase().includes(search.toLowerCase()) ||
     (p.gemstones?.some(g => g.stone_type.toLowerCase().includes(search.toLowerCase())) ?? false)
   )
+
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'weight') {
+      return (b.metal_weight_grams ?? 0) - (a.metal_weight_grams ?? 0)
+    }
+    if (sortBy === 'value') {
+      const valA = (valuationMode === 'appraised' && a.appraised_value != null)
+        ? a.appraised_value
+        : calculateMeltValue(a.metal_type, a.metal_weight_grams, a.metal_karat, prices) ?? 0
+      const valB = (valuationMode === 'appraised' && b.appraised_value != null)
+        ? b.appraised_value
+        : calculateMeltValue(b.metal_type, b.metal_weight_grams, b.metal_karat, prices) ?? 0
+      return valB - valA
+    }
+    return a.name.localeCompare(b.name)
+  })
 
   const handleSave = async (data: JewelryPieceInsert) => {
     if (editingPiece) return updatePiece(editingPiece.id, data)
@@ -125,7 +150,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               valuationMode={valuationMode}
               onToggleMode={() => setValuationMode(m => m === 'melt' ? 'appraised' : 'melt')}
             />
-            <PortfolioChart snapshots={snapshots} valuationMode={valuationMode} />
+            <PortfolioChart pieces={selectedCollection ? activePieces : collectionPieces} prices={prices} valuationMode={valuationMode} />
           </>
         )}
 
@@ -200,6 +225,45 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           )}
         </div>
 
+        {/* Category filter + sort */}
+        {tab !== 'styling' && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                  !selectedCategory ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                All Categories
+              </button>
+              {CATEGORIES.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setSelectedCategory(c.value === selectedCategory ? null : c.value)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                    selectedCategory === c.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <ArrowUpDown className="w-3.5 h-3.5 text-neutral-500" />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as 'name' | 'value' | 'weight')}
+                className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-gold-400"
+              >
+                <option value="name">Name</option>
+                <option value="value">Value</option>
+                <option value="weight">Weight</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Styling tab */}
         {tab === 'styling' && (
           <StylingBoards
@@ -235,7 +299,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
 
             {loading ? (
               <div className="text-center py-16 text-neutral-500">Loading...</div>
-            ) : filtered.length === 0 ? (
+            ) : sorted.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-neutral-500">
                   {activePieces.length === 0
@@ -249,7 +313,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filtered.map(piece => (
+                {sorted.map(piece => (
                   <div key={piece.id} onClick={() => setViewingPiece(piece)} className="cursor-pointer">
                     <PieceCard
                       piece={piece}

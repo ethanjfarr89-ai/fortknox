@@ -1,7 +1,7 @@
 import type { SpotPrices } from '../types'
 
 const CACHE_KEY = 'fortknox_spot_prices'
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
 interface CachedPrices {
   prices: SpotPrices

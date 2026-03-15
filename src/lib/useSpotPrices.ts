@@ -44,8 +44,8 @@ export function useSpotPrices() {
     }
     load()
 
-    // Auto-refresh every 5 minutes
-    const interval = setInterval(load, 5 * 60 * 1000)
+    // Auto-refresh every hour
+    const interval = setInterval(load, 60 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
