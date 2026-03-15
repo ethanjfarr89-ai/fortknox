@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
 import { calculateMeltValue } from '../lib/prices'
+import { useHistoricalPrices } from '../lib/useHistoricalPrices'
 
 interface Props {
   pieces: JewelryPiece[]
@@ -32,87 +33,113 @@ function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationM
 
 export default function PortfolioChart({ pieces, prices, valuationMode }: Props) {
   const [range, setRange] = useState<string>('ALL')
+  const { historicalPrices, loading: histLoading } = useHistoricalPrices()
 
   const data = useMemo(() => {
     if (pieces.length === 0) return []
 
-    // Build timeline: for each piece, determine when it was acquired
-    const events: { date: string; value: number }[] = []
-    for (const piece of pieces) {
-      const date = getAcquisitionDate(piece)
-      if (!date) continue
-      const value = getPieceValue(piece, prices, valuationMode)
-      events.push({ date, value })
-    }
+    // Pieces with their acquisition dates
+    const piecesWithDates = pieces
+      .map(p => ({ piece: p, acquiredDate: getAcquisitionDate(p) }))
+      .filter(p => p.acquiredDate != null) as { piece: JewelryPiece; acquiredDate: string }[]
 
-    if (events.length === 0) return []
+    if (piecesWithDates.length === 0) return []
 
-    // Sort by date
-    events.sort((a, b) => a.date.localeCompare(b.date))
-
-    // Build cumulative timeline
-    const timeline: { date: string; value: number }[] = []
-    let cumulative = 0
-
-    // Add a zero point the day before the first acquisition
-    const firstDate = new Date(events[0].date)
-    firstDate.setDate(firstDate.getDate() - 1)
-    timeline.push({ date: firstDate.toISOString().split('T')[0], value: 0 })
-
-    // Group events by date and accumulate
-    for (const event of events) {
-      cumulative += event.value
-      // If same date as last point, update it; otherwise add new point
-      if (timeline.length > 0 && timeline[timeline.length - 1].date === event.date) {
-        timeline[timeline.length - 1].value = cumulative
-      } else {
-        timeline.push({ date: event.date, value: cumulative })
-      }
-    }
-
-    // Add today's point at current cumulative value
-    const today = new Date().toISOString().split('T')[0]
-    if (timeline[timeline.length - 1].date !== today) {
-      timeline.push({ date: today, value: cumulative })
-    }
-
-    // Apply range filter
+    // Determine range filter
     const selectedRange = ranges.find(r => r.label === range)
-    const cutoff = selectedRange && selectedRange.days > 0
-      ? new Date(Date.now() - selectedRange.days * 24 * 60 * 60 * 1000)
+    const cutoffDate = selectedRange && selectedRange.days > 0
+      ? new Date(Date.now() - selectedRange.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       : null
 
-    let filtered = cutoff
-      ? timeline.filter(p => new Date(p.date) >= cutoff)
-      : timeline
+    const today = new Date().toISOString().split('T')[0]
 
-    // If range filter removed all points, find the cumulative value just before cutoff
-    if (filtered.length === 0 && cutoff) {
-      const beforeCutoff = timeline.filter(p => new Date(p.date) < cutoff)
-      const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
-      filtered = [
-        { date: cutoff.toISOString().split('T')[0], value: baseValue },
-        { date: today, value: cumulative },
-      ]
-    } else if (filtered.length === 1) {
-      // Need at least 2 points - add the value just before cutoff
-      if (cutoff) {
-        const beforeCutoff = timeline.filter(p => new Date(p.date) < cutoff)
-        const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
-        filtered = [{ date: cutoff.toISOString().split('T')[0], value: baseValue }, ...filtered]
+    // If we have historical prices, use them for true daily valuation
+    if (historicalPrices && historicalPrices.dates.length > 0) {
+      // Build date→prices lookup
+      const dateIndex = new Map<string, number>()
+      for (let i = 0; i < historicalPrices.dates.length; i++) {
+        dateIndex.set(historicalPrices.dates[i], i)
       }
+
+      // Filter dates by range
+      const dates = historicalPrices.dates.filter(d => {
+        if (cutoffDate && d < cutoffDate) return false
+        return true
+      })
+
+      // Downsample for longer ranges to keep chart snappy
+      let step = 1
+      if (dates.length > 500) step = Math.ceil(dates.length / 500)
+
+      const timeline: { date: string; value: number }[] = []
+
+      for (let di = 0; di < dates.length; di += step) {
+        const date = dates[di]
+        const idx = dateIndex.get(date)
+        if (idx == null) continue
+
+        // Build that day's spot prices
+        const dayPrices: SpotPrices = {
+          gold: historicalPrices.gold[idx],
+          silver: historicalPrices.silver[idx],
+          platinum: historicalPrices.platinum[idx],
+          palladium: historicalPrices.palladium[idx],
+          updated_at: null,
+        }
+
+        // Sum value of all pieces owned on this date
+        let totalValue = 0
+        let hasAnyPiece = false
+        for (const { piece, acquiredDate } of piecesWithDates) {
+          if (acquiredDate <= date) {
+            hasAnyPiece = true
+            totalValue += getPieceValue(piece, dayPrices, valuationMode)
+          }
+        }
+
+        if (hasAnyPiece) {
+          timeline.push({ date, value: totalValue })
+        }
+      }
+
+      // Always include today with current live prices
+      const lastDate = timeline.length > 0 ? timeline[timeline.length - 1].date : null
+      if (lastDate !== today) {
+        let todayValue = 0
+        for (const { piece, acquiredDate } of piecesWithDates) {
+          if (acquiredDate <= today) {
+            todayValue += getPieceValue(piece, prices, valuationMode)
+          }
+        }
+        if (todayValue > 0) {
+          timeline.push({ date: today, value: todayValue })
+        }
+      }
+
+      if (timeline.length < 2) return []
+
+      return timeline.map(p => ({
+        date: formatDate(p.date, timeline.length),
+        value: Math.round(p.value * 100) / 100,
+      }))
     }
 
-    return filtered.map(p => ({
-      date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: filtered.length > 365 ? '2-digit' : undefined }),
-      value: Math.round(p.value * 100) / 100,
-    }))
-  }, [pieces, prices, valuationMode, range])
+    // Fallback: no historical data — use current prices (old behavior)
+    return buildFallbackTimeline(piecesWithDates, prices, valuationMode, cutoffDate, today)
+  }, [pieces, prices, valuationMode, range, historicalPrices])
 
   if (pieces.length === 0) {
     return (
       <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 text-center">
         <p className="text-sm text-neutral-500">Add pieces to see your portfolio chart.</p>
+      </div>
+    )
+  }
+
+  if (histLoading) {
+    return (
+      <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 text-center">
+        <p className="text-sm text-neutral-500">Loading historical prices...</p>
       </div>
     )
   }
@@ -211,4 +238,70 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
       </div>
     </div>
   )
+}
+
+/** Format date label for chart axis */
+function formatDate(dateStr: string, totalPoints: number): string {
+  const d = new Date(dateStr)
+  if (totalPoints > 365) {
+    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** Fallback timeline using current prices (when historical data unavailable) */
+function buildFallbackTimeline(
+  piecesWithDates: { piece: JewelryPiece; acquiredDate: string }[],
+  prices: SpotPrices,
+  valuationMode: ValuationMode,
+  cutoffDate: string | null,
+  today: string,
+) {
+  const events: { date: string; value: number }[] = []
+  for (const { piece, acquiredDate } of piecesWithDates) {
+    events.push({ date: acquiredDate, value: getPieceValue(piece, prices, valuationMode) })
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date))
+
+  const timeline: { date: string; value: number }[] = []
+  let cumulative = 0
+
+  const firstDate = new Date(events[0].date)
+  firstDate.setDate(firstDate.getDate() - 1)
+  timeline.push({ date: firstDate.toISOString().split('T')[0], value: 0 })
+
+  for (const event of events) {
+    cumulative += event.value
+    if (timeline.length > 0 && timeline[timeline.length - 1].date === event.date) {
+      timeline[timeline.length - 1].value = cumulative
+    } else {
+      timeline.push({ date: event.date, value: cumulative })
+    }
+  }
+
+  if (timeline[timeline.length - 1].date !== today) {
+    timeline.push({ date: today, value: cumulative })
+  }
+
+  let filtered = cutoffDate
+    ? timeline.filter(p => p.date >= cutoffDate)
+    : timeline
+
+  if (filtered.length === 0 && cutoffDate) {
+    const beforeCutoff = timeline.filter(p => p.date < cutoffDate)
+    const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
+    filtered = [
+      { date: cutoffDate, value: baseValue },
+      { date: today, value: cumulative },
+    ]
+  } else if (filtered.length === 1 && cutoffDate) {
+    const beforeCutoff = timeline.filter(p => p.date < cutoffDate)
+    const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
+    filtered = [{ date: cutoffDate, value: baseValue }, ...filtered]
+  }
+
+  return filtered.map(p => ({
+    date: formatDate(p.date, filtered.length),
+    value: Math.round(p.value * 100) / 100,
+  }))
 }

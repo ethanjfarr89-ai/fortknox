@@ -53,7 +53,7 @@ export default function AuthForm({ onSignIn, onSignUp }: Props) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/logo.jpg" alt="Trove" className="w-32 h-32 mx-auto rounded-xl mb-4" />
-          <p className="text-neutral-500 mt-1">Tracking Your Treasures</p>
+          <p className="text-neutral-500 mt-1">Know what you own</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-neutral-900 rounded-2xl shadow-lg p-8 space-y-5 border border-neutral-800">
