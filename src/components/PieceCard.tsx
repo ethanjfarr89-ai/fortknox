@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, EyeOff } from 'lucide-react'
+import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
@@ -177,23 +177,16 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         {prefs.value && (
           <div className="mt-3 pt-3 border-t border-neutral-800">
             <div className="flex items-baseline justify-between">
-              {privacyMode ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.() }}
-                  className="flex items-center gap-1.5 text-neutral-500 hover:text-gold-400 transition"
-                  title="Show values"
-                >
-                  <span className="text-lg font-bold">••••</span>
-                  <EyeOff className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <>
-                  <span className="text-lg font-bold text-gold-400">{fmtCurrency(displayValue)}</span>
-                  <span className="text-xs text-neutral-600">
-                    {valuationMode === 'appraised' && piece.appraised_value != null ? 'appraised' : 'melt'}
-                  </span>
-                </>
-              )}
+              <span className="text-lg font-bold text-gold-400">
+                {privacyMode ? '••••' : fmtCurrency(displayValue)}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onTogglePrivacy?.() }}
+                className="p-0.5 text-neutral-600 hover:text-gold-400 transition"
+                title={privacyMode ? 'Show values' : 'Hide values'}
+              >
+                {privacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
             </div>
 
             {showRoi && roi !== null && (
