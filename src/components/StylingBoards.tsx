@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search } from 'lucide-react'
 import type { StylingBoard, JewelryPiece, JewelryPieceInsert } from '../types'
 import PhotoManager from './PhotoManager'
@@ -8,6 +8,7 @@ interface Props {
   boards: StylingBoard[]
   pieces: JewelryPiece[]
   onAdd: (name: string, pieceIds: string[], photoUrls: string[], description?: string) => Promise<{ error: unknown }>
+  onUpdateBoard: (id: string, updates: { photo_urls?: string[]; name?: string; description?: string }) => Promise<{ error: unknown }>
   onDelete: (id: string) => Promise<{ error: unknown }>
   onUpdatePiece: (id: string, updates: Partial<JewelryPieceInsert>) => Promise<{ error: unknown }>
 }
@@ -17,7 +18,7 @@ interface StylingPhoto {
   pieceIds: string[]
 }
 
-export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdatePiece }: Props) {
+export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, onDelete, onUpdatePiece }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -29,9 +30,13 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
   const [showTagPicker, setShowTagPicker] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
 
+  // Drag state
+  const [draggingUrl, setDraggingUrl] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null) // board id or '__new__'
+  const dragCounter = useRef<Record<string, number>>({})
+
   const collectionPieces = pieces.filter(p => !p.is_wishlist)
 
-  // Build gallery: all unique styling photos across all pieces, mapped to their pieces
   const gallery = useMemo(() => {
     const photoMap = new Map<string, Set<string>>()
     for (const piece of pieces) {
@@ -65,7 +70,6 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
-    // Find all pieces connected to the selected photos
     const pieceIdSet = new Set<string>()
     for (const url of boardPhotoUrls) {
       const photo = gallery.find(p => p.url === url)
@@ -84,7 +88,6 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
     const current = piece.styling_photo_urls ?? []
     if (current.includes(photoUrl)) return
     await onUpdatePiece(piece.id, { styling_photo_urls: [...current, photoUrl] })
-    // Update viewingPhoto to include the new piece
     if (viewingPhoto) {
       setViewingPhoto({ ...viewingPhoto, pieceIds: [...viewingPhoto.pieceIds, piece.id] })
     }
@@ -96,6 +99,66 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
     if (viewingPhoto) {
       setViewingPhoto({ ...viewingPhoto, pieceIds: viewingPhoto.pieceIds.filter(id => id !== piece.id) })
     }
+  }
+
+  // Drag handlers for gallery photos
+  const handleDragStart = (e: React.DragEvent, url: string) => {
+    e.dataTransfer.setData('text/plain', url)
+    e.dataTransfer.effectAllowed = 'copy'
+    setDraggingUrl(url)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingUrl(null)
+    setDropTarget(null)
+    dragCounter.current = {}
+  }
+
+  // Drop target handlers — use a counter to handle nested elements
+  const handleDragEnter = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    if (!dragCounter.current[targetId]) dragCounter.current[targetId] = 0
+    dragCounter.current[targetId]++
+    setDropTarget(targetId)
+  }
+
+  const handleDragLeave = (_e: React.DragEvent, targetId: string) => {
+    if (!dragCounter.current[targetId]) return
+    dragCounter.current[targetId]--
+    if (dragCounter.current[targetId] <= 0) {
+      dragCounter.current[targetId] = 0
+      if (dropTarget === targetId) setDropTarget(null)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleDropOnBoard = async (e: React.DragEvent, board: StylingBoard) => {
+    e.preventDefault()
+    setDropTarget(null)
+    dragCounter.current = {}
+    const url = e.dataTransfer.getData('text/plain')
+    if (!url || board.photo_urls?.includes(url)) {
+      setDraggingUrl(null)
+      return
+    }
+    const updatedUrls = [...(board.photo_urls ?? []), url]
+    await onUpdateBoard(board.id, { photo_urls: updatedUrls })
+    setDraggingUrl(null)
+  }
+
+  const handleDropNewBoard = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDropTarget(null)
+    dragCounter.current = {}
+    const url = e.dataTransfer.getData('text/plain')
+    if (!url) { setDraggingUrl(null); return }
+    setBoardPhotoUrls([url])
+    setShowForm(true)
+    setDraggingUrl(null)
   }
 
   const inputCls = 'w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500'
@@ -132,8 +195,13 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
               return (
                 <div
                   key={photo.url}
-                  className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer border-2 transition ${
-                    isSelected ? 'border-gold-400' : 'border-transparent hover:border-neutral-600'
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, photo.url)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative aspect-square rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing border-2 transition ${
+                    isSelected ? 'border-gold-400' :
+                    draggingUrl === photo.url ? 'border-gold-400/50 opacity-50' :
+                    'border-transparent hover:border-neutral-600'
                   }`}
                 >
                   <img
@@ -178,7 +246,7 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
           </button>
         </div>
 
-        {boards.length === 0 && (
+        {boards.length === 0 && !draggingUrl && (
           <div className="text-center py-8 text-neutral-500 text-sm bg-neutral-900 rounded-xl border border-neutral-800">
             Select photos from the gallery above and create a board, or click "New Board" to start fresh.
           </div>
@@ -187,8 +255,23 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {boards.map(board => {
             const boardPieces = collectionPieces.filter(p => board.piece_ids?.includes(p.id))
+            const isOver = dropTarget === board.id
+            const alreadyHas = draggingUrl ? board.photo_urls?.includes(draggingUrl) : false
             return (
-              <div key={board.id} className="bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
+              <div
+                key={board.id}
+                onDragEnter={(e) => handleDragEnter(e, board.id)}
+                onDragLeave={(e) => handleDragLeave(e, board.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDropOnBoard(e, board)}
+                className={`bg-neutral-900 rounded-xl border overflow-hidden transition-all ${
+                  isOver && !alreadyHas
+                    ? 'border-gold-400 ring-2 ring-gold-400/30 scale-[1.02]'
+                    : isOver && alreadyHas
+                    ? 'border-neutral-600'
+                    : 'border-neutral-800'
+                }`}
+              >
                 {board.photo_urls?.length > 0 ? (
                   <div className="grid grid-cols-2 gap-0.5 aspect-video overflow-hidden">
                     {board.photo_urls.slice(0, 4).map((url, i) => (
@@ -203,7 +286,9 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
                   </div>
                 ) : (
                   <div className="aspect-video bg-neutral-800 flex items-center justify-center">
-                    <span className="text-neutral-600 text-sm">No photos</span>
+                    <span className="text-neutral-600 text-sm">
+                      {isOver && !alreadyHas ? 'Drop to add' : 'No photos'}
+                    </span>
                   </div>
                 )}
 
@@ -230,6 +315,26 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
               </div>
             )
           })}
+
+          {/* "New Board" drop zone — only visible while dragging */}
+          {draggingUrl && (
+            <div
+              onDragEnter={(e) => handleDragEnter(e, '__new__')}
+              onDragLeave={(e) => handleDragLeave(e, '__new__')}
+              onDragOver={handleDragOver}
+              onDrop={handleDropNewBoard}
+              className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 min-h-[200px] transition-all ${
+                dropTarget === '__new__'
+                  ? 'border-gold-400 bg-gold-400/5 scale-[1.02]'
+                  : 'border-neutral-700 bg-neutral-900/50'
+              }`}
+            >
+              <Plus className={`w-8 h-8 transition ${dropTarget === '__new__' ? 'text-gold-400' : 'text-neutral-600'}`} />
+              <span className={`text-sm transition ${dropTarget === '__new__' ? 'text-gold-400' : 'text-neutral-500'}`}>
+                Drop to create new board
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -280,7 +385,6 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
                   </div>
                 )}
 
-                {/* Tag a piece button / picker */}
                 {!showTagPicker ? (
                   <button
                     onClick={() => setShowTagPicker(true)}
@@ -360,7 +464,6 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
                 <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className={inputCls} placeholder="Optional notes..." />
               </div>
 
-              {/* Selected gallery photos */}
               {boardPhotoUrls.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-2">Selected Photos</label>
@@ -381,7 +484,6 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdat
                 </div>
               )}
 
-              {/* Pick from gallery */}
               {gallery.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-2">Add from Gallery</label>

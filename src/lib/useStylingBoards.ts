@@ -61,11 +61,17 @@ export function useStylingBoards(userId: string | undefined) {
     return { data, error: null }
   }
 
+  const updateBoard = async (id: string, updates: { photo_urls?: string[]; name?: string; description?: string }) => {
+    const { error } = await supabase.from('styling_boards').update(updates).eq('id', id)
+    if (!error) await fetchBoards()
+    return { error }
+  }
+
   const deleteBoard = async (id: string) => {
     const { error } = await supabase.from('styling_boards').delete().eq('id', id)
     if (!error) setBoards(prev => prev.filter(b => b.id !== id))
     return { error }
   }
 
-  return { boards, loading, addBoard, deleteBoard, refetch: fetchBoards }
+  return { boards, loading, addBoard, updateBoard, deleteBoard, refetch: fetchBoards }
 }
