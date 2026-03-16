@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { UserProfile, CropArea, PrivacySettings } from '../types'
+import type { UserProfile, CropArea, PrivacySettings, CardDisplayPrefs } from '../types'
 
 export function useProfile(userId: string | undefined) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -30,7 +30,7 @@ export function useProfile(userId: string | undefined) {
 
   useEffect(() => { fetchProfile() }, [fetchProfile])
 
-  const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; privacy_settings?: PrivacySettings | null }) => {
+  const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; privacy_settings?: PrivacySettings | null; card_display_prefs?: CardDisplayPrefs | null }) => {
     if (!userId) return { error: null }
 
     // Try full update first

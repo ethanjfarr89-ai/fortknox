@@ -119,6 +119,7 @@ export interface UserProfile {
   avatar_url: string | null
   avatar_crop: CropArea | null
   privacy_settings: PrivacySettings | null
+  card_display_prefs: CardDisplayPrefs | null
 }
 
 export interface Collection {

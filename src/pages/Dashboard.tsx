@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUpDown, Share2, Gem, SlidersHorizontal } from 'lucide-react'
+import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { usePieces } from '../lib/usePieces'
@@ -54,6 +54,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date'>('name')
+  const [sortAsc, setSortAsc] = useState(true)
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('trove_privacy') === 'true')
   const [cardPrefs, setCardPrefs] = useState<CardDisplayPrefs>(() => {
     try { return JSON.parse(localStorage.getItem('trove_card_prefs') ?? '') }
@@ -61,6 +62,14 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   })
   const [showCardSettings, setShowCardSettings] = useState(false)
   const cardSettingsRef = useRef<HTMLDivElement>(null)
+
+  // Sync card prefs from profile on load (profile is source of truth across devices)
+  useEffect(() => {
+    if (profile?.card_display_prefs) {
+      setCardPrefs(profile.card_display_prefs)
+      localStorage.setItem('trove_card_prefs', JSON.stringify(profile.card_display_prefs))
+    }
+  }, [profile?.card_display_prefs])
 
   // Close card settings on outside click
   useEffect(() => {
@@ -83,6 +92,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     setCardPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] }
       localStorage.setItem('trove_card_prefs', JSON.stringify(next))
+      updateProfile({ card_display_prefs: next })
       return next
     })
   }
@@ -163,9 +173,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   }
 
   // Sort
+  const dir = sortAsc ? 1 : -1
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'weight') {
-      return (b.metal_weight_grams ?? 0) - (a.metal_weight_grams ?? 0)
+      return dir * ((a.metal_weight_grams ?? 0) - (b.metal_weight_grams ?? 0))
     }
     if (sortBy === 'value') {
       const valA = (valuationMode === 'appraised' && a.appraised_value != null)
@@ -174,12 +185,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
       const valB = (valuationMode === 'appraised' && b.appraised_value != null)
         ? b.appraised_value
         : calculateMeltValue(b.metal_type, b.metal_weight_grams, b.metal_karat, prices) ?? 0
-      return valB - valA
+      return dir * (valA - valB)
     }
     if (sortBy === 'date') {
-      return getAcquiredDate(b).localeCompare(getAcquiredDate(a))
+      return dir * getAcquiredDate(a).localeCompare(getAcquiredDate(b))
     }
-    return a.name.localeCompare(b.name)
+    return dir * a.name.localeCompare(b.name)
   })
 
   const handleSave = async (data: JewelryPieceInsert) => {
@@ -350,7 +361,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               ))}
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <ArrowUpDown className="w-3.5 h-3.5 text-neutral-500" />
+              <button
+                onClick={() => setSortAsc(prev => !prev)}
+                className="p-1 text-neutral-500 hover:text-gold-400 transition rounded-md hover:bg-neutral-800"
+                title={sortAsc ? 'Ascending — click to reverse' : 'Descending — click to reverse'}
+              >
+                {sortAsc ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+              </button>
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as 'name' | 'value' | 'weight' | 'date')}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
@@ -68,12 +68,38 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
     setPhotoIndex(i => (i + 1) % photos.length)
   }
 
+  // Touch swipe for mobile
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const swiped = useRef(false)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    swiped.current = false
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart.current || !hasMultiplePhotos || swiped.current) return
+    const dx = e.touches[0].clientX - touchStart.current.x
+    const dy = e.touches[0].clientY - touchStart.current.y
+    // Only swipe if horizontal movement exceeds vertical (not scrolling)
+    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swiped.current = true
+      if (dx > 0) setPhotoIndex(i => (i - 1 + photos.length) % photos.length)
+      else setPhotoIndex(i => (i + 1) % photos.length)
+    }
+  }
+  const handleTouchEnd = () => { touchStart.current = null }
+
   return (
     <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group ${
       piece.is_wishlist ? 'border-neutral-700 border-dashed' : 'border-neutral-800'
     }`}>
       {/* Photo */}
-      <div className="aspect-square bg-neutral-800 relative overflow-hidden">
+      <div
+        className="aspect-square bg-neutral-800 relative overflow-hidden"
+        onTouchStart={hasMultiplePhotos ? handleTouchStart : undefined}
+        onTouchMove={hasMultiplePhotos ? handleTouchMove : undefined}
+        onTouchEnd={hasMultiplePhotos ? handleTouchEnd : undefined}
+      >
         {currentPhoto ? (
           <CroppedImage
             src={currentPhoto}
