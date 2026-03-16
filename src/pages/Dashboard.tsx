@@ -53,7 +53,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showSharePicker, setShowSharePicker] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date'>('name')
+  const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date' | 'gain_pct' | 'gain_amt'>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('trove_privacy') === 'true')
   const [cardPrefs, setCardPrefs] = useState<CardDisplayPrefs>(() => {
@@ -172,6 +172,25 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     return p.created_at?.split('T')[0] ?? ''
   }
 
+  const getPieceValue = (p: JewelryPiece) => {
+    if (valuationMode === 'appraised' && p.appraised_value != null) return p.appraised_value
+    const melt = calculateMeltValue(p.metal_type, p.metal_weight_grams, p.metal_karat, prices) ?? 0
+    const gem = calculateGemstoneValue(p.gemstones)
+    return melt + gem
+  }
+
+  const getGainPct = (p: JewelryPiece) => {
+    const val = getPieceValue(p)
+    if (p.price_paid == null || p.price_paid <= 0) return -Infinity
+    return ((val - p.price_paid) / p.price_paid) * 100
+  }
+
+  const getGainAmt = (p: JewelryPiece) => {
+    const val = getPieceValue(p)
+    if (p.price_paid == null) return -Infinity
+    return val - p.price_paid
+  }
+
   // Sort
   const dir = sortAsc ? 1 : -1
   const sorted = [...filtered].sort((a, b) => {
@@ -179,13 +198,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
       return dir * ((a.metal_weight_grams ?? 0) - (b.metal_weight_grams ?? 0))
     }
     if (sortBy === 'value') {
-      const valA = (valuationMode === 'appraised' && a.appraised_value != null)
-        ? a.appraised_value
-        : calculateMeltValue(a.metal_type, a.metal_weight_grams, a.metal_karat, prices) ?? 0
-      const valB = (valuationMode === 'appraised' && b.appraised_value != null)
-        ? b.appraised_value
-        : calculateMeltValue(b.metal_type, b.metal_weight_grams, b.metal_karat, prices) ?? 0
-      return dir * (valA - valB)
+      return dir * (getPieceValue(a) - getPieceValue(b))
+    }
+    if (sortBy === 'gain_pct') {
+      return dir * (getGainPct(a) - getGainPct(b))
+    }
+    if (sortBy === 'gain_amt') {
+      return dir * (getGainAmt(a) - getGainAmt(b))
     }
     if (sortBy === 'date') {
       return dir * getAcquiredDate(a).localeCompare(getAcquiredDate(b))
@@ -370,11 +389,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               </button>
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as 'name' | 'value' | 'weight' | 'date')}
+                onChange={e => setSortBy(e.target.value as typeof sortBy)}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-gold-400"
               >
                 <option value="name">Name</option>
                 <option value="value">Value</option>
+                <option value="gain_pct">Gain %</option>
+                <option value="gain_amt">Gain $</option>
                 <option value="weight">Weight</option>
                 <option value="date">Date Acquired</option>
               </select>
