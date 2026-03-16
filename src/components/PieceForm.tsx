@@ -58,7 +58,12 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
   const [stylingPhotoUrls, setStylingPhotoUrls] = useState<string[]>(piece?.styling_photo_urls ?? [])
   const [hallmarkPhotoUrls, setHallmarkPhotoUrls] = useState<string[]>(piece?.hallmark_photo_urls ?? [])
   const [profilePhotoIndex, setProfilePhotoIndex] = useState(piece?.profile_photo_index ?? 0)
-  const [profilePhotoCrop, setProfilePhotoCrop] = useState<CropArea | null>(piece?.profile_photo_crop ?? null)
+  const [photoCrops, setPhotoCrops] = useState<Record<string, CropArea>>(() => {
+    // Initialize from photo_crops if available, otherwise migrate from profile_photo_crop
+    if (piece?.photo_crops) return piece.photo_crops
+    if (piece?.profile_photo_crop) return { [String(piece.profile_photo_index ?? 0)]: piece.profile_photo_crop }
+    return {}
+  })
 
   // Category-specific
   const [ringSize, setRingSize] = useState(piece?.ring_size ?? '')
@@ -115,7 +120,8 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
       styling_photo_urls: stylingPhotoUrls,
       hallmark_photo_urls: hallmarkPhotoUrls,
       profile_photo_index: profilePhotoIndex,
-      profile_photo_crop: profilePhotoCrop,
+      profile_photo_crop: photoCrops[String(profilePhotoIndex)] ?? null,
+      photo_crops: Object.keys(photoCrops).length > 0 ? photoCrops : null,
       ring_size: strOrNull(ringSize),
       chain_length: numOrNull(chainLength),
       chain_width: numOrNull(chainWidth),
@@ -531,9 +537,9 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
             onChange={setPhotoUrls}
             showProfileSelect
             profileIndex={profilePhotoIndex}
-            onSetProfile={(i) => { if (i !== profilePhotoIndex) { setProfilePhotoIndex(i); setProfilePhotoCrop(null) } }}
-            onCropProfile={setProfilePhotoCrop}
-            profileCrop={profilePhotoCrop}
+            onSetProfile={(i) => { setProfilePhotoIndex(i) }}
+            onCropPhoto={(i, crop) => setPhotoCrops(prev => ({ ...prev, [String(i)]: crop }))}
+            photoCrops={photoCrops}
           />
 
           <PhotoManager

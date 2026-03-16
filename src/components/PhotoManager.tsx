@@ -10,13 +10,13 @@ interface Props {
   onChange: (urls: string[]) => void
   profileIndex?: number
   onSetProfile?: (index: number) => void
-  onCropProfile?: (crop: CropArea) => void
-  profileCrop?: CropArea | null
+  onCropPhoto?: (index: number, crop: CropArea) => void
+  photoCrops?: Record<string, CropArea> | null
   showProfileSelect?: boolean
   existingPhotos?: string[]
 }
 
-export default function PhotoManager({ label, urls, onChange, profileIndex, onSetProfile, onCropProfile, profileCrop, showProfileSelect, existingPhotos }: Props) {
+export default function PhotoManager({ label, urls, onChange, profileIndex, onSetProfile, onCropPhoto, photoCrops, showProfileSelect, existingPhotos }: Props) {
   const [uploading, setUploading] = useState(false)
   const [cropIndex, setCropIndex] = useState<number | null>(null)
   const [showExisting, setShowExisting] = useState(false)
@@ -75,7 +75,6 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
     setActiveIndex(prev => prev === i ? null : i)
   }
 
-  // Filter out photos already added
   const availableExisting = existingPhotos?.filter(url => !urls.includes(url)) ?? []
 
   return (
@@ -86,6 +85,7 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
           {urls.map((url, i) => {
             const isActive = activeIndex === i
             const isProfile = showProfileSelect && i === profileIndex
+            const hasCrop = photoCrops && photoCrops[String(i)]
 
             return (
               <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden">
@@ -112,12 +112,12 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
                       <Star className={`w-4 h-4 ${isProfile ? 'fill-gold-400' : ''}`} />
                     </button>
                   )}
-                  {showProfileSelect && isProfile && onCropProfile && (
+                  {onCropPhoto && (
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); setCropIndex(i); setActiveIndex(null) }}
                       className="p-1.5 rounded-full text-white hover:text-gold-400"
-                      title="Crop main photo"
+                      title="Crop photo"
                     >
                       <Crop className="w-4 h-4" />
                     </button>
@@ -131,12 +131,15 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                {/* Profile star indicator */}
-                {isProfile && !isActive && (
-                  <div className="absolute top-0.5 left-0.5">
+                {/* Indicators */}
+                <div className="absolute top-0.5 left-0.5 flex gap-0.5">
+                  {isProfile && !isActive && (
                     <Star className="w-3 h-3 text-gold-400 fill-gold-400" />
-                  </div>
-                )}
+                  )}
+                  {hasCrop && !isActive && (
+                    <Crop className="w-3 h-3 text-gold-400" />
+                  )}
+                </div>
               </div>
             )
           })}
@@ -187,12 +190,12 @@ export default function PhotoManager({ label, urls, onChange, profileIndex, onSe
         </div>
       )}
 
-      {cropIndex !== null && urls[cropIndex] && onCropProfile && (
+      {cropIndex !== null && urls[cropIndex] && onCropPhoto && (
         <ImageCropper
           imageUrl={urls[cropIndex]}
-          initialCrop={profileCrop}
+          initialCrop={photoCrops?.[String(cropIndex)] ?? null}
           aspect={1}
-          onSave={(crop) => { onCropProfile(crop); setCropIndex(null) }}
+          onSave={(crop) => { onCropPhoto(cropIndex, crop); setCropIndex(null) }}
           onCancel={() => setCropIndex(null)}
         />
       )}

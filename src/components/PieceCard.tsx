@@ -39,8 +39,9 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   const photos = piece.photo_urls ?? []
   const hasMultiplePhotos = photos.length > 1
   const currentPhoto = photos[photoIndex] ?? photos[0]
-  // Only the profile photo has a crop — other photos show full
-  const currentCrop = photoIndex === (piece.profile_photo_index ?? 0) ? piece.profile_photo_crop : null
+  // Use per-photo crop if available, fall back to profile_photo_crop for the profile photo
+  const currentCrop = piece.photo_crops?.[String(photoIndex)]
+    ?? (photoIndex === (piece.profile_photo_index ?? 0) ? piece.profile_photo_crop : null)
 
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
   const gemValue = calculateGemstoneValue(piece.gemstones)

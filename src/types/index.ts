@@ -61,6 +61,7 @@ export interface JewelryPiece {
   hallmark_photo_urls: string[]
   profile_photo_index: number
   profile_photo_crop: CropArea | null
+  photo_crops: Record<string, CropArea> | null
   // Category-specific fields
   ring_size: string | null
   chain_length: number | null
