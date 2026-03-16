@@ -42,9 +42,18 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
     if (pieces.length === 0) return []
 
     // Pieces with their acquisition dates
-    const piecesWithDates = pieces
-      .map(p => ({ piece: p, acquiredDate: getAcquisitionDate(p) }))
-      .filter(p => p.acquiredDate != null) as { piece: JewelryPiece; acquiredDate: string }[]
+    // First pass: get all known dates to find the earliest
+    const rawPiecesWithDates = pieces.map(p => ({ piece: p, acquiredDate: getAcquisitionDate(p) }))
+    const knownDates = rawPiecesWithDates.map(p => p.acquiredDate).filter(Boolean) as string[]
+    const earliestDate = knownDates.length > 0
+      ? knownDates.sort()[0]
+      : new Date().toISOString().split('T')[0]
+
+    // Pieces without any date are treated as acquired on the earliest date
+    const piecesWithDates = rawPiecesWithDates.map(p => ({
+      piece: p.piece,
+      acquiredDate: p.acquiredDate ?? earliestDate,
+    }))
 
     if (piecesWithDates.length === 0) return []
 
