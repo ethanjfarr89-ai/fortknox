@@ -9,6 +9,7 @@ import { useProfile } from '../lib/useProfile'
 import { useCollections } from '../lib/useCollections'
 import { useStylingBoards } from '../lib/useStylingBoards'
 import { useFriends } from '../lib/useFriends'
+import { useNotifications } from '../lib/useNotifications'
 import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 import Header from '../components/Header'
 import SpotPriceBar from '../components/SpotPriceBar'
@@ -19,6 +20,7 @@ import PieceForm from '../components/PieceForm'
 import PieceDetail from '../components/PieceDetail'
 import StylingBoards from '../components/StylingBoards'
 import ProfileSettings from '../components/ProfileSettings'
+import NotificationBanner from '../components/NotificationBanner'
 import FriendsPanel from '../components/FriendsPanel'
 import FriendProfile from '../components/FriendProfile'
 import CollectionManager from '../components/CollectionManager'
@@ -40,6 +42,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection, updateSharePrefs } = useCollections(userId)
   const { boards, addBoard, updateBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
+  const { notifications, dismiss: dismissNotif, dismissAll: dismissAllNotifs } = useNotifications(userId, pending)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -254,6 +257,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         onSignOut={onSignOut}
         onOpenProfile={() => setShowProfile(true)}
         onOpenFriends={() => setShowFriends(true)}
+      />
+      <NotificationBanner
+        notifications={notifications}
+        onDismiss={dismissNotif}
+        onDismissAll={dismissAllNotifs}
+        onOpenFriends={() => setShowFriends(true)}
+        onViewFriend={(n) => {
+          if (!n.senderUserId) return
+          const friend = friends.find(f => {
+            const fid = f.requester_id === userId ? f.addressee_id : f.requester_id
+            return fid === n.senderUserId
+          })
+          if (friend) setViewingFriend(friend)
+        }}
       />
       <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
 
