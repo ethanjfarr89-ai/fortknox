@@ -41,33 +41,32 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
   const data = useMemo(() => {
     if (pieces.length === 0) return []
 
-    // Pieces with their acquisition dates
-    // First pass: get all known dates to find the earliest
-    const rawPiecesWithDates = pieces.map(p => ({ piece: p, acquiredDate: getAcquisitionDate(p) }))
-    const knownDates = rawPiecesWithDates.map(p => p.acquiredDate).filter(Boolean) as string[]
-    const earliestDate = knownDates.length > 0
-      ? knownDates.sort()[0]
-      : new Date().toISOString().split('T')[0]
+    // Resolve acquisition dates — pieces without dates use the earliest known date
+    const rawDates = pieces.map(p => getAcquisitionDate(p)).filter(Boolean) as string[]
+    const earliestDate = rawDates.length > 0 ? rawDates.sort()[0] : null
 
-    // Pieces without any date are treated as acquired on the earliest date
-    const piecesWithDates = rawPiecesWithDates.map(p => ({
-      piece: p.piece,
-      acquiredDate: p.acquiredDate ?? earliestDate,
+    const piecesWithDates = pieces.map(p => ({
+      piece: p,
+      acquiredDate: getAcquisitionDate(p) ?? earliestDate ?? new Date().toISOString().split('T')[0],
     }))
 
-    if (piecesWithDates.length === 0) return []
+    const today = new Date().toISOString().split('T')[0]
 
-    // Determine range filter
+    // Determine range cutoff
     const selectedRange = ranges.find(r => r.label === range)
     const cutoffDate = selectedRange && selectedRange.days > 0
       ? new Date(Date.now() - selectedRange.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       : null
 
-    const today = new Date().toISOString().split('T')[0]
-
-    // If we have historical prices, use them for true daily valuation
+    // Use historical prices if available
     if (historicalPrices && historicalPrices.dates.length > 0) {
-      // Build date→prices lookup
+      // Forward-fill null prices so gaps don't zero out values
+      const gold = forwardFill(historicalPrices.gold)
+      const silver = forwardFill(historicalPrices.silver)
+      const platinum = forwardFill(historicalPrices.platinum)
+      const palladium = forwardFill(historicalPrices.palladium)
+
+      // Build date→index lookup
       const dateIndex = new Map<string, number>()
       for (let i = 0; i < historicalPrices.dates.length; i++) {
         dateIndex.set(historicalPrices.dates[i], i)
@@ -79,7 +78,7 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
         return true
       })
 
-      // Downsample for longer ranges to keep chart snappy
+      // Downsample for performance but always include the last historical date
       let step = 1
       if (dates.length > 500) step = Math.ceil(dates.length / 500)
 
@@ -90,43 +89,59 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
         const idx = dateIndex.get(date)
         if (idx == null) continue
 
-        // Build that day's spot prices
         const dayPrices: SpotPrices = {
-          gold: historicalPrices.gold[idx],
-          silver: historicalPrices.silver[idx],
-          platinum: historicalPrices.platinum[idx],
-          palladium: historicalPrices.palladium[idx],
+          gold: gold[idx],
+          silver: silver[idx],
+          platinum: platinum[idx],
+          palladium: palladium[idx],
           updated_at: null,
         }
 
         // Sum value of all pieces owned on this date
         let totalValue = 0
-        let hasAnyPiece = false
         for (const { piece, acquiredDate } of piecesWithDates) {
           if (acquiredDate <= date) {
-            hasAnyPiece = true
             totalValue += getPieceValue(piece, dayPrices, valuationMode)
           }
         }
 
-        if (hasAnyPiece) {
-          timeline.push({ date, value: totalValue })
+        timeline.push({ date, value: totalValue })
+      }
+
+      // Ensure the last historical date is included (downsampling might skip it)
+      const lastHistDate = dates[dates.length - 1]
+      if (timeline.length > 0 && timeline[timeline.length - 1].date !== lastHistDate) {
+        const idx = dateIndex.get(lastHistDate)
+        if (idx != null) {
+          const dayPrices: SpotPrices = {
+            gold: gold[idx],
+            silver: silver[idx],
+            platinum: platinum[idx],
+            palladium: palladium[idx],
+            updated_at: null,
+          }
+          let totalValue = 0
+          for (const { piece, acquiredDate } of piecesWithDates) {
+            if (acquiredDate <= lastHistDate) {
+              totalValue += getPieceValue(piece, dayPrices, valuationMode)
+            }
+          }
+          timeline.push({ date: lastHistDate, value: totalValue })
         }
       }
 
-      // Always use current live prices for today — sum ALL pieces
-      // (matches PortfolioSummary which counts every piece, not just dated ones)
+      // Always end with today using live prices, summing ALL pieces
+      // This ensures the chart endpoint matches the PortfolioSummary number
       let todayValue = 0
       for (const piece of pieces) {
         todayValue += getPieceValue(piece, prices, valuationMode)
       }
-      if (todayValue > 0) {
-        // Replace the last point if it's today (historical close), or append
-        if (timeline.length > 0 && timeline[timeline.length - 1].date === today) {
-          timeline[timeline.length - 1].value = todayValue
-        } else {
-          timeline.push({ date: today, value: todayValue })
-        }
+
+      if (timeline.length > 0 && timeline[timeline.length - 1].date === today) {
+        // Replace historical today with live today
+        timeline[timeline.length - 1].value = todayValue
+      } else if (todayValue > 0) {
+        timeline.push({ date: today, value: todayValue })
       }
 
       if (timeline.length < 2) return []
@@ -137,8 +152,8 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
       }))
     }
 
-    // Fallback: no historical data — use current prices (old behavior)
-    return buildFallbackTimeline(piecesWithDates, prices, valuationMode, cutoffDate, today)
+    // Fallback: no historical data — use current prices
+    return buildFallbackTimeline(piecesWithDates, pieces, prices, valuationMode, cutoffDate, today)
   }, [pieces, prices, valuationMode, range, historicalPrices])
 
   if (pieces.length === 0) {
@@ -169,6 +184,7 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
   const min = Math.min(...values)
   const max = Math.max(...values)
   const padding = (max - min) * 0.1 || 100
+  const yMin = Math.max(0, Math.floor(min - padding)) // never go below 0
   const isUp = values.length >= 2 && values[values.length - 1] >= values[0]
   const color = isUp ? '#34d399' : '#f87171'
 
@@ -214,7 +230,7 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
                 minTickGap={40}
               />
               <YAxis
-                domain={[Math.floor(min - padding), Math.ceil(max + padding)]}
+                domain={[yMin, Math.ceil(max + padding)]}
                 tick={{ fill: '#525252', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
@@ -262,9 +278,25 @@ function formatDate(dateStr: string, totalPoints: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * Forward-fill null values in a price array.
+ * If a date has null, use the most recent non-null value.
+ * This prevents pieces from being valued at $0 on days with missing data.
+ */
+function forwardFill(arr: (number | null)[]): (number | null)[] {
+  const result: (number | null)[] = []
+  let last: number | null = null
+  for (const v of arr) {
+    if (v != null) last = v
+    result.push(last)
+  }
+  return result
+}
+
 /** Fallback timeline using current prices (when historical data unavailable) */
 function buildFallbackTimeline(
   piecesWithDates: { piece: JewelryPiece; acquiredDate: string }[],
+  allPieces: JewelryPiece[],
   prices: SpotPrices,
   valuationMode: ValuationMode,
   cutoffDate: string | null,
@@ -292,8 +324,15 @@ function buildFallbackTimeline(
     }
   }
 
-  if (timeline[timeline.length - 1].date !== today) {
-    timeline.push({ date: today, value: cumulative })
+  // End with today using all pieces (matches summary)
+  let todayValue = 0
+  for (const piece of allPieces) {
+    todayValue += getPieceValue(piece, prices, valuationMode)
+  }
+  if (timeline[timeline.length - 1].date === today) {
+    timeline[timeline.length - 1].value = todayValue
+  } else {
+    timeline.push({ date: today, value: todayValue })
   }
 
   let filtered = cutoffDate
@@ -305,7 +344,7 @@ function buildFallbackTimeline(
     const baseValue = beforeCutoff.length > 0 ? beforeCutoff[beforeCutoff.length - 1].value : 0
     filtered = [
       { date: cutoffDate, value: baseValue },
-      { date: today, value: cumulative },
+      { date: today, value: todayValue },
     ]
   } else if (filtered.length === 1 && cutoffDate) {
     const beforeCutoff = timeline.filter(p => p.date < cutoffDate)
