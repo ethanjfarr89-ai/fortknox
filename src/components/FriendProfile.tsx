@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, Gem, Weight, Lock, Eye, EyeOff, Sparkles, FolderOpen } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, UserProfile, PrivacySettings, Collection } from '../types'
 import { CATEGORIES } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
 import Lightbox from './Lightbox'
@@ -152,11 +152,7 @@ export default function FriendProfile({ profile, prices, fetchPieces, fetchShare
               {categoryLabel && (
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-neutral-800 text-neutral-300">{categoryLabel}</span>
               )}
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                isGoldType(viewingPiece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
-                viewingPiece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
-                'bg-blue-900/30 text-blue-400'
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${metalBadgeClasses(viewingPiece.metal_type)}`}>
                 {metalLabels[viewingPiece.metal_type] ?? viewingPiece.metal_type}
                 {isGoldType(viewingPiece.metal_type) && viewingPiece.metal_karat ? ` ${viewingPiece.metal_karat}K` : ''}
               </span>

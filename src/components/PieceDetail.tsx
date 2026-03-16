@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import { CATEGORIES } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
 import { useScrollLock } from '../lib/useScrollLock'
 import Lightbox from './Lightbox'
 import CroppedImage from './CroppedImage'
@@ -178,11 +178,7 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
             {categoryLabel && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-neutral-800 text-neutral-300">{categoryLabel}</span>
             )}
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-              isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
-              piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
-              'bg-blue-900/30 text-blue-400'
-            }`}>
+            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${metalBadgeClasses(piece.metal_type)}`}>
               {metalLabels[piece.metal_type]} {isGoldType(piece.metal_type) && piece.metal_karat ? `${piece.metal_karat}K` : ''}
             </span>
             {piece.metal_weight_grams && (

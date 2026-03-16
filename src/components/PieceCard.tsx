@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
 import CroppedImage from './CroppedImage'
 
 interface Props {
@@ -157,11 +157,7 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
               </span>
             )}
             {prefs.metal && (
-              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
-                piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
-                'bg-blue-900/30 text-blue-400'
-              }`}>
+              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${metalBadgeClasses(piece.metal_type)}`}>
                 {metalLabels[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
               </span>
             )}
