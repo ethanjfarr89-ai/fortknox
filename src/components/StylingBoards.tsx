@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search } from 'lucide-react'
+import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search, GripVertical } from 'lucide-react'
 import type { StylingBoard, JewelryPiece, JewelryPieceInsert } from '../types'
 import PhotoManager from './PhotoManager'
 import Lightbox from './Lightbox'
@@ -210,6 +210,10 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
                     className="w-full h-full object-cover"
                     onClick={() => setViewingPhoto(photo)}
                   />
+                  {/* Drag grip indicator */}
+                  <div className="absolute top-1.5 right-1.5 p-0.5 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                    <GripVertical className="w-3.5 h-3.5 text-white/80" />
+                  </div>
                   {/* Selection checkbox */}
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleSelectPhoto(photo.url) }}
@@ -247,8 +251,10 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
         </div>
 
         {boards.length === 0 && !draggingUrl && (
-          <div className="text-center py-8 text-neutral-500 text-sm bg-neutral-900 rounded-xl border border-neutral-800">
-            Select photos from the gallery above and create a board, or click "New Board" to start fresh.
+          <div className="text-center py-8 bg-neutral-900 rounded-xl border border-neutral-800">
+            <ImageIcon className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+            <p className="text-sm text-neutral-500">No boards yet.</p>
+            <p className="text-xs text-neutral-600 mt-1">Select photos from the gallery above, or click "New Board" to start fresh.</p>
           </div>
         )}
 

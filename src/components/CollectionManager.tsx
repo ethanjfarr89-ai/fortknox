@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, X, Share2, ChevronDown, ChevronUp, User, Gem, Package, Pencil } from 'lucide-react'
+import { Plus, Trash2, X, Share2, ChevronDown, ChevronUp, User, Gem, Package, Pencil, FolderOpen, Users } from 'lucide-react'
 import type { Collection, Friendship, JewelryPiece, CollectionShare } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
@@ -119,7 +119,11 @@ export default function CollectionManager({ collections, pieces, pieceCollection
           {/* Collection list */}
           <div className="space-y-2">
             {collections.length === 0 ? (
-              <p className="text-xs text-neutral-500">No collections yet. Create one above to organize and share your pieces.</p>
+              <div className="text-center py-8">
+                <FolderOpen className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                <p className="text-sm text-neutral-500">No collections yet.</p>
+                <p className="text-xs text-neutral-600 mt-1">Create one above to organize and share your pieces.</p>
+              </div>
             ) : (
               collections.map(c => {
                 const sharedWith = shares[c.id] ?? []
@@ -197,7 +201,10 @@ export default function CollectionManager({ collections, pieces, pieceCollection
                         {expandTab === 'pieces' && (
                           <div className="p-3 space-y-1.5 max-h-60 overflow-y-auto">
                             {trovePieces.length === 0 ? (
-                              <p className="text-xs text-neutral-600">Add pieces to your Trove first.</p>
+                              <div className="text-center py-8">
+                                <Gem className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                                <p className="text-sm text-neutral-500">Add pieces to your Trove first.</p>
+                              </div>
                             ) : (
                               trovePieces.map(piece => {
                                 const isAssigned = (pieceCollectionMap[piece.id] ?? []).includes(c.id)
@@ -242,7 +249,10 @@ export default function CollectionManager({ collections, pieces, pieceCollection
                         {expandTab === 'sharing' && (
                           <div className="p-3 space-y-1.5">
                             {friends.length === 0 ? (
-                              <p className="text-xs text-neutral-600">Add friends first to share collections.</p>
+                              <div className="text-center py-8">
+                                <Users className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                                <p className="text-sm text-neutral-500">Add friends first to share collections.</p>
+                              </div>
                             ) : (
                               friends.map(f => {
                                 const friendId = getFriendUserId(f)

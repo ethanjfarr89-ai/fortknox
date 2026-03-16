@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Gem, Weight, Sparkles, FolderOpen } from 'lucide-react'
+import { ArrowLeft, Gem, Weight, Sparkles, FolderOpen, Search } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, UserProfile, CardDisplayPrefs } from '../types'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
@@ -35,6 +35,7 @@ export default function FriendProfile({ profile, prices, fetchPieces, fetchShare
   const [loading, setLoading] = useState(true)
   const [viewingPiece, setViewingPiece] = useState<JewelryPiece | null>(null)
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -81,9 +82,21 @@ export default function FriendProfile({ profile, prices, fetchPieces, fetchShare
   })
 
   // Filter by selected collection
-  const displayPieces = selectedCollection
+  const collectionFiltered = selectedCollection
     ? pieces.filter(p => (pieceCollectionMap[p.id] ?? []).includes(selectedCollection))
     : pieces
+
+  // Filter by search query
+  const displayPieces = search.trim()
+    ? collectionFiltered.filter(p => {
+        const q = search.trim().toLowerCase()
+        const name = p.name?.toLowerCase() ?? ''
+        const metal = (metalLabels[p.metal_type] ?? p.metal_type ?? '').toLowerCase()
+        const category = (CATEGORIES.find(c => c.value === p.category)?.label ?? '').toLowerCase()
+        const desc = (p.description ?? '').toLowerCase()
+        return name.includes(q) || metal.includes(q) || category.includes(q) || desc.includes(q)
+      })
+    : collectionFiltered
 
   // Piece detail view
   if (viewingPiece) {
@@ -249,14 +262,38 @@ export default function FriendProfile({ profile, prices, fetchPieces, fetchShare
         </div>
       )}
 
+      {/* Search bar */}
+      {!loading && pieces.length > 0 && (
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search pieces..."
+            className="w-full pl-10 pr-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500"
+          />
+        </div>
+      )}
+
       {/* Pieces grid */}
       {loading ? (
         <div className="text-center py-12 text-neutral-500 text-sm">Loading collection...</div>
       ) : displayPieces.length === 0 ? (
-        <div className="text-center py-12 text-neutral-500 text-sm">
-          {pieces.length === 0
-            ? 'No collections have been shared with you yet.'
-            : 'No pieces in this collection.'}
+        <div className="text-center py-8">
+          {pieces.length === 0 ? (
+            <>
+              <FolderOpen className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+              <p className="text-sm text-neutral-500">No collections have been shared with you yet.</p>
+            </>
+          ) : search.trim() ? (
+            <p className="text-sm text-neutral-500">No pieces match your search.</p>
+          ) : (
+            <>
+              <Gem className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+              <p className="text-sm text-neutral-500">No pieces in this collection.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

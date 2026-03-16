@@ -1,6 +1,6 @@
 import { TrendingUp, Eye, EyeOff } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
-import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, metalBadgeClasses } from '../lib/prices'
 
 interface Props {
   pieces: JewelryPiece[]
@@ -16,8 +16,29 @@ function fmt(val: number) {
 }
 
 export default function PortfolioSummary({ pieces, prices, valuationMode, onToggleMode, privacyMode, onTogglePrivacy }: Props) {
+  const goldTypes = new Set(['gold', 'yellow_gold', 'white_gold', 'rose_gold'])
+
   let totalValue = 0
   let piecesWithValue = 0
+  let totalWeight = 0
+  const weightByMetal: Record<string, number> = {}
+
+  for (const piece of pieces) {
+    if (piece.metal_weight_grams != null) {
+      totalWeight += piece.metal_weight_grams
+      const group = goldTypes.has(piece.metal_type) ? 'gold' : piece.metal_type
+      weightByMetal[group] = (weightByMetal[group] ?? 0) + piece.metal_weight_grams
+    }
+  }
+
+  const metalLabels: Record<string, string> = {
+    gold: 'Gold',
+    silver: 'Silver',
+    platinum: 'Platinum',
+    palladium: 'Palladium',
+  }
+
+  const metalOrder = ['gold', 'silver', 'platinum', 'palladium']
 
   for (const piece of pieces) {
     if (valuationMode === 'appraised' && piece.appraised_value != null) {
@@ -66,6 +87,27 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
           Switch to {valuationMode === 'melt' ? 'Appraised' : 'Melt'} Value
         </button>
       </div>
+
+      {totalWeight > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="bg-neutral-800 rounded-lg px-3 py-2">
+            <p className="text-neutral-500 text-xs">Total Weight</p>
+            <p className="text-neutral-300 text-xs font-medium">
+              {privacyMode ? '••••' : `${totalWeight.toFixed(1)}g`}
+            </p>
+          </div>
+          {metalOrder
+            .filter((m) => weightByMetal[m] != null)
+            .map((m) => (
+              <div key={m} className="bg-neutral-800 rounded-lg px-3 py-2">
+                <p className={`text-xs ${metalBadgeClasses(m)}`}>{metalLabels[m]}</p>
+                <p className="text-neutral-300 text-xs font-medium">
+                  {privacyMode ? '••••' : `${weightByMetal[m].toFixed(1)}g`}
+                </p>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   )
 }

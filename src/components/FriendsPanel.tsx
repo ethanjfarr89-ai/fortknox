@@ -169,7 +169,11 @@ export default function FriendsPanel({ friends, pending, userId, onSendRequest, 
           <div>
             <h3 className="text-sm font-medium text-neutral-400 mb-2">Friends ({friends.length})</h3>
             {friends.length === 0 ? (
-              <p className="text-xs text-neutral-500">No friends yet. Search by display name to add someone!</p>
+              <div className="text-center py-8">
+                <Users className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                <p className="text-sm text-neutral-500">No friends yet.</p>
+                <p className="text-xs text-neutral-600 mt-1">Search by display name to add friends.</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {friends.map(f => (

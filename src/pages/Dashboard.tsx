@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { usePieces } from '../lib/usePieces'
@@ -10,6 +10,7 @@ import { useCollections } from '../lib/useCollections'
 import { useStylingBoards } from '../lib/useStylingBoards'
 import { useFriends } from '../lib/useFriends'
 import { useNotifications } from '../lib/useNotifications'
+import { usePriceAlerts } from '../lib/usePriceAlerts'
 import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 import Header from '../components/Header'
 import SpotPriceBar from '../components/SpotPriceBar'
@@ -26,6 +27,9 @@ import FriendProfile from '../components/FriendProfile'
 import CollectionManager from '../components/CollectionManager'
 import PiecePicker from '../components/PiecePicker'
 import CollectionSharePicker from '../components/CollectionSharePicker'
+import ExportReport from '../components/ExportReport'
+import Onboarding from '../components/Onboarding'
+import PieceTimeline from '../components/PieceTimeline'
 
 interface Props {
   userId: string
@@ -37,12 +41,24 @@ type Tab = 'portfolio' | 'wishlist' | 'styling'
 export default function Dashboard({ userId, onSignOut }: Props) {
   const { pieces, loading, addPiece, updatePiece, deletePiece } = usePieces(userId)
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
-  const { saveSnapshot } = useSnapshots(userId)
+  const { snapshots, saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
   const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection, updateSharePrefs } = useCollections(userId)
   const { boards, addBoard, updateBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
-  const { notifications, dismiss: dismissNotif, dismissAll: dismissAllNotifs } = useNotifications(userId, pending)
+  // Compute current total for price alerts
+  const currentTotalValue = useMemo(() => {
+    let total = 0
+    for (const p of pieces.filter(p => !p.is_wishlist)) {
+      const melt = calculateMeltValue(p.metal_type, p.metal_weight_grams, p.metal_karat, prices)
+      const gem = calculateGemstoneValue(p.gemstones)
+      total += (melt ?? 0) + gem
+    }
+    return total
+  }, [pieces, prices])
+
+  const priceAlerts = usePriceAlerts(snapshots, currentTotalValue, prices)
+  const { notifications, dismiss: dismissNotif, dismissAll: dismissAllNotifs } = useNotifications(userId, pending, priceAlerts)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -50,6 +66,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [editingPiece, setEditingPiece] = useState<JewelryPiece | null>(null)
   const [viewingPiece, setViewingPiece] = useState<JewelryPiece | null>(null)
+  const [defaultFormValues, setDefaultFormValues] = useState<Partial<JewelryPieceInsert> | null>(null)
   const [showProfile, setShowProfile] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
   const [showCollections, setShowCollections] = useState(false)
@@ -66,6 +83,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     catch { return DEFAULT_CARD_PREFS }
   })
   const [showCardSettings, setShowCardSettings] = useState(false)
+  const [showExport, setShowExport] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid')
+  const [bulkSelect, setBulkSelect] = useState(false)
+  const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set())
   const cardSettingsRef = useRef<HTMLDivElement>(null)
 
   // Sync card prefs from profile on load (profile is source of truth across devices)
@@ -84,6 +105,33 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     if (showCardSettings) document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showCardSettings])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Escape to close modals
+      if (e.key === 'Escape') {
+        if (showForm) { closeForm(); return }
+        if (viewingPiece) { setViewingPiece(null); return }
+        if (showProfile) { setShowProfile(false); return }
+        if (showFriends) { setShowFriends(false); return }
+        if (showCollections) { setShowCollections(false); return }
+        if (showPiecePicker) { setShowPiecePicker(false); return }
+        if (showSharePicker) { setShowSharePicker(false); return }
+        if (showExport) { setShowExport(false); return }
+        if (viewingFriend) { setViewingFriend(null); return }
+      }
+      // Cmd/Ctrl+N to add piece
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault()
+        setEditingPiece(null)
+        setDefaultFormValues(null)
+        setShowForm(true)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [showForm, viewingPiece, showProfile, showFriends, showCollections, showPiecePicker, showSharePicker, showExport, viewingFriend])
 
   const togglePrivacy = () => {
     setPrivacyMode(prev => {
@@ -217,6 +265,15 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     return dir * a.name.localeCompare(b.name)
   })
 
+  // Recently added (last 5 pieces added in the past 7 days)
+  const recentlyAdded = useMemo(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    return collectionPieces
+      .filter(p => p.created_at > sevenDaysAgo)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 5)
+  }, [collectionPieces])
+
   const handleSave = async (data: JewelryPieceInsert) => {
     if (editingPiece) return updatePiece(editingPiece.id, data)
     return addPiece(data)
@@ -234,6 +291,41 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const closeForm = () => {
     setShowForm(false)
     setEditingPiece(null)
+    setDefaultFormValues(null)
+  }
+
+  const handleDuplicate = (piece: JewelryPiece) => {
+    const { id, user_id, created_at, updated_at, ...rest } = piece
+    setViewingPiece(null)
+    setEditingPiece(null)
+    setDefaultFormValues({ ...rest, name: `Copy of ${piece.name}` })
+    setShowForm(true)
+  }
+
+  const togglePieceSelect = useCallback((pieceId: string) => {
+    setSelectedPieceIds(prev => {
+      const next = new Set(prev)
+      if (next.has(pieceId)) next.delete(pieceId)
+      else next.add(pieceId)
+      return next
+    })
+  }, [])
+
+  const bulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedPieceIds.size} piece${selectedPieceIds.size > 1 ? 's' : ''}? This cannot be undone.`)) return
+    for (const id of selectedPieceIds) {
+      await deletePiece(id)
+    }
+    setSelectedPieceIds(new Set())
+    setBulkSelect(false)
+  }
+
+  const bulkAssignCollection = async (collectionId: string) => {
+    for (const pieceId of selectedPieceIds) {
+      await assignPiece(pieceId, collectionId)
+    }
+    setSelectedPieceIds(new Set())
+    setBulkSelect(false)
   }
 
   const portfolioLabel = profile?.display_name ? `${profile.display_name}'s Trove` : 'My Trove'
@@ -288,6 +380,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           />
         ) : (
         <>
+        {/* Onboarding for new users */}
+        <Onboarding
+          pieceCount={pieces.length}
+          onAddPiece={() => { setEditingPiece(null); setDefaultFormValues(null); setShowForm(true) }}
+        />
+
         {tab === 'portfolio' && (
           <>
             <PortfolioSummary
@@ -298,7 +396,41 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               privacyMode={privacyMode}
               onTogglePrivacy={togglePrivacy}
             />
-            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} />
+            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} snapshots={snapshots} />
+
+            {/* Recently added */}
+            {recentlyAdded.length > 0 && (
+              <div className="bg-neutral-900 rounded-2xl p-4 border border-neutral-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-gold-400" />
+                  <h3 className="text-sm font-medium text-neutral-400">Recently Added</h3>
+                </div>
+                <div className="flex gap-3 overflow-x-auto">
+                  {recentlyAdded.map(piece => {
+                    const photoUrl = piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0]
+                    return (
+                      <button
+                        key={piece.id}
+                        onClick={() => setViewingPiece(piece)}
+                        className="flex items-center gap-2.5 bg-neutral-800 rounded-lg p-2 pr-4 hover:bg-neutral-700 transition shrink-0"
+                      >
+                        {photoUrl ? (
+                          <img src={photoUrl} alt="" className="w-9 h-9 rounded object-cover border border-neutral-700" />
+                        ) : (
+                          <div className="w-9 h-9 rounded bg-neutral-700 flex items-center justify-center">
+                            <Gem className="w-4 h-4 text-neutral-500" />
+                          </div>
+                        )}
+                        <div className="text-left">
+                          <p className="text-sm text-white font-medium truncate max-w-[120px]">{piece.name}</p>
+                          <p className="text-xs text-neutral-500">{new Date(piece.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -343,17 +475,27 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               >
                 All
               </button>
-              {collections.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCollection(c.id === selectedCollection ? null : c.id)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                    selectedCollection === c.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
-                  }`}
-                >
-                  {c.name}
-                </button>
-              ))}
+              {collections.map(c => {
+                // Find first piece in collection for cover photo
+                const firstPieceId = Object.entries(pieceCollectionMap).find(([, colIds]) => colIds.includes(c.id))?.[0]
+                const coverPiece = firstPieceId ? collectionPieces.find(p => p.id === firstPieceId) : null
+                const coverUrl = coverPiece?.photo_urls?.[coverPiece.profile_photo_index ?? 0] ?? coverPiece?.photo_urls?.[0]
+
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCollection(c.id === selectedCollection ? null : c.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                      selectedCollection === c.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    {coverUrl && (
+                      <img src={coverUrl} alt="" className="w-4 h-4 rounded-sm object-cover" />
+                    )}
+                    {c.name}
+                  </button>
+                )
+              })}
               <button
                 onClick={() => setShowCollections(true)}
                 className="p-1 text-neutral-500 hover:text-gold-400 transition"
@@ -412,6 +554,36 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               ))}
             </div>
             <div className="flex items-center gap-2 ml-auto">
+              <div className="flex gap-0.5 bg-neutral-800 rounded-md p-0.5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1 rounded transition ${viewMode === 'grid' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={`p-1 rounded transition ${viewMode === 'timeline' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                  title="Timeline view"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <button
+                onClick={() => { setBulkSelect(b => !b); setSelectedPieceIds(new Set()) }}
+                className={`p-1.5 transition rounded-md hover:bg-neutral-800 ${bulkSelect ? 'text-gold-400' : 'text-neutral-500 hover:text-gold-400'}`}
+                title={bulkSelect ? 'Exit bulk select' : 'Bulk select'}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setShowExport(true)}
+                className="p-1.5 text-neutral-500 hover:text-gold-400 transition rounded-md hover:bg-neutral-800"
+                title="Export report"
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={() => setSortAsc(prev => !prev)}
                 className="p-1 text-neutral-500 hover:text-gold-400 transition rounded-md hover:bg-neutral-800"
@@ -517,11 +689,23 @@ export default function Dashboard({ userId, onSignOut }: Props) {
 
             {loading ? (
               <div className="text-center py-16 text-neutral-500">Loading...</div>
+            ) : viewMode === 'timeline' ? (
+              <PieceTimeline
+                pieces={sorted}
+                prices={prices}
+                valuationMode={valuationMode}
+                privacyMode={privacyMode}
+                onViewPiece={setViewingPiece}
+              />
             ) : sorted.length === 0 ? (
               <div className="text-center py-16">
                 {activePieces.length === 0 ? (
                   tab === 'wishlist' ? (
-                    <p className="text-neutral-500">Your wishlist is empty.</p>
+                    <div className="text-center py-8">
+                      <Gem className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                      <p className="text-sm text-neutral-500">Your wishlist is empty.</p>
+                      <p className="text-xs text-neutral-600 mt-1">Track pieces you have your eye on.</p>
+                    </div>
                   ) : selectedCollection ? (
                     <div className="space-y-3">
                       <Gem className="w-10 h-10 text-neutral-700 mx-auto" />
@@ -535,7 +719,17 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       </button>
                     </div>
                   ) : (
-                    <p className="text-neutral-500">No pieces yet. Add your first piece!</p>
+                    <div className="text-center py-8">
+                      <Gem className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                      <p className="text-sm text-neutral-500">No pieces yet.</p>
+                      <button
+                        onClick={() => { setEditingPiece(null); setShowForm(true) }}
+                        className="inline-flex items-center gap-2 px-4 py-2 mt-3 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add your first piece
+                      </button>
+                    </div>
                   )
                 ) : (
                   <p className="text-neutral-500">No pieces match your search.</p>
@@ -544,7 +738,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {sorted.map(piece => (
-                  <div key={piece.id} onClick={() => setViewingPiece(piece)} className="cursor-pointer">
+                  <div
+                    key={piece.id}
+                    onClick={() => bulkSelect ? togglePieceSelect(piece.id) : setViewingPiece(piece)}
+                    className={`cursor-pointer relative ${bulkSelect && selectedPieceIds.has(piece.id) ? 'ring-2 ring-gold-400 rounded-xl' : ''}`}
+                  >
+                    {bulkSelect && (
+                      <div className="absolute top-2 left-2 z-10">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                          selectedPieceIds.has(piece.id) ? 'bg-gold-400 border-gold-400' : 'border-neutral-500 bg-neutral-900/80'
+                        }`}>
+                          {selectedPieceIds.has(piece.id) && <span className="text-black text-xs font-bold">✓</span>}
+                        </div>
+                      </div>
+                    )}
                     <PieceCard
                       piece={piece}
                       prices={prices}
@@ -575,6 +782,44 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         )}
       </main>
 
+      {/* Bulk action bar */}
+      {bulkSelect && selectedPieceIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl px-5 py-3">
+          <span className="text-sm text-neutral-300 font-medium">{selectedPieceIds.size} selected</span>
+          <div className="w-px h-5 bg-neutral-700" />
+          {collections.length > 0 && (
+            <div className="relative group">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition">
+                <FolderPlus className="w-4 h-4" /> Add to Collection
+              </button>
+              <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[160px]">
+                {collections.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => bulkAssignCollection(c.id)}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition"
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={bulkDelete}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-neutral-800 rounded-lg transition"
+          >
+            <Trash2 className="w-4 h-4" /> Delete
+          </button>
+          <button
+            onClick={() => { setBulkSelect(false); setSelectedPieceIds(new Set()) }}
+            className="px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-300 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Modals */}
       {showForm && (
         <PieceForm
@@ -582,6 +827,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onSave={handleSave}
           onClose={closeForm}
           defaultWishlist={tab === 'wishlist'}
+          defaultValues={defaultFormValues}
           collections={collections}
           pieceCollections={editingPiece ? pieceCollectionMap[editingPiece.id] : undefined}
           onAssignCollection={editingPiece ? (cid) => assignPiece(editingPiece.id, cid) : undefined}
@@ -596,6 +842,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           prices={prices}
           onClose={() => setViewingPiece(null)}
           onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
           pieceCollections={pieceCollectionMap[viewingPiece.id]}
           collections={collections}
         />
@@ -653,6 +900,17 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onAssign={(pieceId) => assignPiece(pieceId, selectedCollection)}
           onUnassign={(pieceId) => unassignPiece(pieceId, selectedCollection)}
           onClose={() => setShowPiecePicker(false)}
+        />
+      )}
+
+      {showExport && (
+        <ExportReport
+          pieces={pieces}
+          prices={prices}
+          collections={collections}
+          pieceCollectionMap={pieceCollectionMap}
+          ownerName={profile?.display_name ?? null}
+          onClose={() => setShowExport(false)}
         />
       )}
 

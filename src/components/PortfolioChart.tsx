@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
+import type { JewelryPiece, SpotPrices, ValuationMode, PortfolioSnapshot } from '../types'
 import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 import { useHistoricalPrices } from '../lib/useHistoricalPrices'
 
@@ -9,6 +9,7 @@ interface Props {
   prices: SpotPrices
   valuationMode: ValuationMode
   privacyMode?: boolean
+  snapshots?: PortfolioSnapshot[]
 }
 
 const ranges = [
@@ -35,9 +36,39 @@ function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationM
   return (melt ?? 0) + gemVal
 }
 
-export default function PortfolioChart({ pieces, prices, valuationMode, privacyMode }: Props) {
+type ChartSource = 'market' | 'recorded'
+
+export default function PortfolioChart({ pieces, prices, valuationMode, privacyMode, snapshots }: Props) {
   const [range, setRange] = useState<string>('ALL')
+  const [source, setSource] = useState<ChartSource>('market')
   const { historicalPrices, loading: histLoading } = useHistoricalPrices()
+
+  const hasSnapshots = snapshots && snapshots.length >= 2
+
+  const snapshotData = useMemo(() => {
+    if (!snapshots || snapshots.length < 2) return []
+
+    const selectedRange = ranges.find(r => r.label === range)
+    const cutoffDate = selectedRange && selectedRange.days > 0
+      ? new Date(Date.now() - selectedRange.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      : null
+
+    let filtered = snapshots.map(s => ({
+      date: new Date(s.recorded_at).toISOString().split('T')[0],
+      value: valuationMode === 'appraised' ? s.total_appraised_value : s.total_melt_value,
+    }))
+
+    if (cutoffDate) {
+      filtered = filtered.filter(p => p.date >= cutoffDate)
+    }
+
+    if (filtered.length < 2) return []
+
+    return filtered.map(p => ({
+      date: formatDate(p.date, filtered.length),
+      value: Math.round(p.value * 100) / 100,
+    }))
+  }, [snapshots, range, valuationMode])
 
   const data = useMemo(() => {
     if (pieces.length === 0) return []
@@ -181,7 +212,9 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
     )
   }
 
-  const values = data.map(d => d.value)
+  const chartData = (source === 'recorded' && snapshotData.length >= 2) ? snapshotData : data
+
+  const values = chartData.map(d => d.value)
   const min = Math.min(...values)
   const max = Math.max(...values)
   const padding = (max - min) * 0.1 || 100
@@ -192,9 +225,31 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
   return (
     <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="text-sm font-medium text-neutral-400">
-          Portfolio Value ({valuationMode === 'melt' ? 'Melt' : 'Appraised'})
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-medium text-neutral-400">
+            Portfolio Value ({valuationMode === 'melt' ? 'Melt' : 'Appraised'})
+          </h3>
+          {hasSnapshots && (
+            <div className="flex gap-0.5 bg-neutral-800 rounded-md p-0.5">
+              <button
+                onClick={() => setSource('market')}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition ${
+                  source === 'market' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                Market
+              </button>
+              <button
+                onClick={() => setSource('recorded')}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition ${
+                  source === 'recorded' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                Recorded
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex gap-1 bg-neutral-800 rounded-lg p-0.5">
           {ranges.map(r => (
             <button
@@ -215,13 +270,13 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
             <span className="text-neutral-500 text-sm">Values hidden</span>
           </div>
         )}
-        {data.length < 2 ? (
+        {chartData.length < 2 ? (
           <div className="flex items-center justify-center h-full text-sm text-neutral-500">
-            Not enough data for this time range.
+            {source === 'recorded' ? 'Not enough recorded snapshots for this time range.' : 'Not enough data for this time range.'}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.3} />

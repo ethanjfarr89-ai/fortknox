@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen } from 'lucide-react'
+import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
@@ -12,6 +12,7 @@ interface Props {
   prices: SpotPrices
   onClose: () => void
   onEdit: (piece: JewelryPiece) => void
+  onDuplicate?: (piece: JewelryPiece) => void
   pieceCollections?: string[]
   collections?: Collection[]
 }
@@ -53,7 +54,7 @@ function PhotoGallery({ label, icon, photos }: { label: string; icon: React.Reac
   )
 }
 
-export default function PieceDetail({ piece, prices, onClose, onEdit, pieceCollections, collections }: Props) {
+export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections }: Props) {
   useScrollLock()
   const [mainLightbox, setMainLightbox] = useState<number | null>(null)
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
@@ -297,10 +298,19 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
           <PhotoGallery label="Styling Examples" icon={<Shirt className="w-4 h-4" />} photos={piece.styling_photo_urls ?? []} />
         </div>
 
-        <div className="p-5 border-t border-neutral-800">
+        <div className="p-5 border-t border-neutral-800 flex gap-3">
+          {onDuplicate && (
+            <button
+              onClick={() => { onClose(); onDuplicate(piece) }}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:bg-neutral-800 transition text-sm"
+            >
+              <Copy className="w-4 h-4" />
+              Duplicate
+            </button>
+          )}
           <button
             onClick={() => { onClose(); onEdit(piece) }}
-            className="w-full py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
+            className="flex-1 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
           >
             Edit Piece
           </button>

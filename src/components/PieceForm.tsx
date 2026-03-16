@@ -12,6 +12,7 @@ interface Props {
   onSave: (data: JewelryPieceInsert) => Promise<{ error: unknown }>
   onClose: () => void
   defaultWishlist?: boolean
+  defaultValues?: Partial<JewelryPieceInsert> | null
   collections?: Collection[]
   pieceCollections?: string[]
   onAssignCollection?: (collectionId: string) => void
@@ -29,63 +30,66 @@ const metalOptions = [
   { value: 'other', label: 'Other' },
 ]
 
-export default function PieceForm({ piece, onSave, onClose, defaultWishlist, collections, pieceCollections, onAssignCollection, onUnassignCollection, allStylingPhotos }: Props) {
+export default function PieceForm({ piece, onSave, onClose, defaultWishlist, defaultValues, collections, pieceCollections, onAssignCollection, onUnassignCollection, allStylingPhotos }: Props) {
   useScrollLock()
 
+  // Use piece for editing, or defaultValues for duplicating (new piece with pre-filled data)
+  const init = piece ?? defaultValues
+
   // Core
-  const [name, setName] = useState(piece?.name ?? '')
-  const [description, setDescription] = useState(piece?.description ?? '')
-  const [category, setCategory] = useState<Category>(piece?.category ?? 'ring')
-  const [metalType, setMetalType] = useState(normalizeMetalType(piece?.metal_type ?? 'yellow_gold'))
-  const [weightGrams, setWeightGrams] = useState(piece?.metal_weight_grams?.toString() ?? '')
-  const [karat, setKarat] = useState(piece?.metal_karat?.toString() ?? '')
-  const [history, setHistory] = useState(piece?.history ?? '')
-  const [significance, setSignificance] = useState(piece?.significance ?? '')
-  const [appraisedValue, setAppraisedValue] = useState(piece?.appraised_value?.toString() ?? '')
-  const [acquisitionType, setAcquisitionType] = useState<AcquisitionType>(piece?.acquisition_type ?? 'purchased')
-  const [pricePaid, setPricePaid] = useState(piece?.price_paid?.toString() ?? '')
-  const [datePurchased, setDatePurchased] = useState(piece?.date_purchased ?? '')
-  const [giftedBy, setGiftedBy] = useState(piece?.gifted_by ?? '')
-  const [inheritedFrom, setInheritedFrom] = useState(piece?.inherited_from ?? '')
-  const [dateReceived, setDateReceived] = useState(piece?.date_received ?? '')
-  const [isWishlist, setIsWishlist] = useState(piece?.is_wishlist ?? defaultWishlist ?? false)
+  const [name, setName] = useState(init?.name ?? '')
+  const [description, setDescription] = useState(init?.description ?? '')
+  const [category, setCategory] = useState<Category>(init?.category ?? 'ring')
+  const [metalType, setMetalType] = useState(normalizeMetalType(init?.metal_type ?? 'yellow_gold'))
+  const [weightGrams, setWeightGrams] = useState(init?.metal_weight_grams?.toString() ?? '')
+  const [karat, setKarat] = useState(init?.metal_karat?.toString() ?? '')
+  const [history, setHistory] = useState(init?.history ?? '')
+  const [significance, setSignificance] = useState(init?.significance ?? '')
+  const [appraisedValue, setAppraisedValue] = useState(init?.appraised_value?.toString() ?? '')
+  const [acquisitionType, setAcquisitionType] = useState<AcquisitionType>(init?.acquisition_type ?? 'purchased')
+  const [pricePaid, setPricePaid] = useState(init?.price_paid?.toString() ?? '')
+  const [datePurchased, setDatePurchased] = useState(init?.date_purchased ?? '')
+  const [giftedBy, setGiftedBy] = useState(init?.gifted_by ?? '')
+  const [inheritedFrom, setInheritedFrom] = useState(init?.inherited_from ?? '')
+  const [dateReceived, setDateReceived] = useState(init?.date_received ?? '')
+  const [isWishlist, setIsWishlist] = useState(init?.is_wishlist ?? defaultWishlist ?? false)
 
   // Gemstones
-  const [gemstones, setGemstones] = useState<Gemstone[]>(piece?.gemstones ?? [])
+  const [gemstones, setGemstones] = useState<Gemstone[]>(init?.gemstones ?? [])
 
   // Photos
-  const [photoUrls, setPhotoUrls] = useState<string[]>(piece?.photo_urls ?? [])
-  const [stylingPhotoUrls, setStylingPhotoUrls] = useState<string[]>(piece?.styling_photo_urls ?? [])
-  const [hallmarkPhotoUrls, setHallmarkPhotoUrls] = useState<string[]>(piece?.hallmark_photo_urls ?? [])
-  const [profilePhotoIndex, setProfilePhotoIndex] = useState(piece?.profile_photo_index ?? 0)
+  const [photoUrls, setPhotoUrls] = useState<string[]>(init?.photo_urls ?? [])
+  const [stylingPhotoUrls, setStylingPhotoUrls] = useState<string[]>(init?.styling_photo_urls ?? [])
+  const [hallmarkPhotoUrls, setHallmarkPhotoUrls] = useState<string[]>(init?.hallmark_photo_urls ?? [])
+  const [profilePhotoIndex, setProfilePhotoIndex] = useState(init?.profile_photo_index ?? 0)
   const [photoCrops, setPhotoCrops] = useState<Record<string, CropArea>>(() => {
     // Initialize from photo_crops if available, otherwise migrate from profile_photo_crop
-    if (piece?.photo_crops) return piece.photo_crops
-    if (piece?.profile_photo_crop) return { [String(piece.profile_photo_index ?? 0)]: piece.profile_photo_crop }
+    if (init?.photo_crops) return init.photo_crops
+    if (init?.profile_photo_crop) return { [String(init.profile_photo_index ?? 0)]: init.profile_photo_crop }
     return {}
   })
 
   // Category-specific
-  const [ringSize, setRingSize] = useState(piece?.ring_size ?? '')
-  const [chainLength, setChainLength] = useState(piece?.chain_length?.toString() ?? '')
-  const [chainWidth, setChainWidth] = useState(piece?.chain_width?.toString() ?? '')
-  const [braceletLength, setBraceletLength] = useState(piece?.bracelet_length?.toString() ?? '')
-  const [braceletWidth, setBraceletWidth] = useState(piece?.bracelet_width?.toString() ?? '')
-  const [braceletType, setBraceletType] = useState<'bracelet' | 'bangle'>(piece?.bracelet_type ?? 'bracelet')
-  const [bangleSize, setBangleSize] = useState(piece?.bangle_size?.toString() ?? '')
-  const [ankletLength, setAnkletLength] = useState(piece?.anklet_length?.toString() ?? '')
-  const [ankletWidth, setAnkletWidth] = useState(piece?.anklet_width?.toString() ?? '')
-  const [pendantLength, setPendantLength] = useState(piece?.pendant_length?.toString() ?? '')
-  const [pendantWidth, setPendantWidth] = useState(piece?.pendant_width?.toString() ?? '')
-  const [earringLength, setEarringLength] = useState(piece?.earring_length?.toString() ?? '')
-  const [earringWidth, setEarringWidth] = useState(piece?.earring_width?.toString() ?? '')
-  const [ringBandWidth, setRingBandWidth] = useState(piece?.ring_band_width?.toString() ?? '')
-  const [watchMaker, setWatchMaker] = useState(piece?.watch_maker ?? '')
-  const [watchMovement, setWatchMovement] = useState(piece?.watch_movement ?? '')
-  const [watchDialSize, setWatchDialSize] = useState(piece?.watch_dial_size?.toString() ?? '')
-  const [watchCaseMaterial, setWatchCaseMaterial] = useState(piece?.watch_case_material ?? '')
-  const [watchBandMaterial, setWatchBandMaterial] = useState(piece?.watch_band_material ?? '')
-  const [watchReference, setWatchReference] = useState(piece?.watch_reference ?? '')
+  const [ringSize, setRingSize] = useState(init?.ring_size ?? '')
+  const [chainLength, setChainLength] = useState(init?.chain_length?.toString() ?? '')
+  const [chainWidth, setChainWidth] = useState(init?.chain_width?.toString() ?? '')
+  const [braceletLength, setBraceletLength] = useState(init?.bracelet_length?.toString() ?? '')
+  const [braceletWidth, setBraceletWidth] = useState(init?.bracelet_width?.toString() ?? '')
+  const [braceletType, setBraceletType] = useState<'bracelet' | 'bangle'>(init?.bracelet_type ?? 'bracelet')
+  const [bangleSize, setBangleSize] = useState(init?.bangle_size?.toString() ?? '')
+  const [ankletLength, setAnkletLength] = useState(init?.anklet_length?.toString() ?? '')
+  const [ankletWidth, setAnkletWidth] = useState(init?.anklet_width?.toString() ?? '')
+  const [pendantLength, setPendantLength] = useState(init?.pendant_length?.toString() ?? '')
+  const [pendantWidth, setPendantWidth] = useState(init?.pendant_width?.toString() ?? '')
+  const [earringLength, setEarringLength] = useState(init?.earring_length?.toString() ?? '')
+  const [earringWidth, setEarringWidth] = useState(init?.earring_width?.toString() ?? '')
+  const [ringBandWidth, setRingBandWidth] = useState(init?.ring_band_width?.toString() ?? '')
+  const [watchMaker, setWatchMaker] = useState(init?.watch_maker ?? '')
+  const [watchMovement, setWatchMovement] = useState(init?.watch_movement ?? '')
+  const [watchDialSize, setWatchDialSize] = useState(init?.watch_dial_size?.toString() ?? '')
+  const [watchCaseMaterial, setWatchCaseMaterial] = useState(init?.watch_case_material ?? '')
+  const [watchBandMaterial, setWatchBandMaterial] = useState(init?.watch_band_material ?? '')
+  const [watchReference, setWatchReference] = useState(init?.watch_reference ?? '')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

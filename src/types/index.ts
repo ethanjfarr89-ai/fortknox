@@ -124,7 +124,6 @@ export interface Collection {
   user_id: string
   name: string
   description: string | null
-  visibility: 'private' | 'friends' | 'specific'
   created_at: string
 }
 

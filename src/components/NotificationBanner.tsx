@@ -1,4 +1,4 @@
-import { X, UserPlus, FolderOpen } from 'lucide-react'
+import { X, UserPlus, FolderOpen, TrendingUp, TrendingDown } from 'lucide-react'
 import type { AppNotification } from '../lib/useNotifications'
 import CroppedImage from './CroppedImage'
 
@@ -19,7 +19,14 @@ export default function NotificationBanner({ notifications, onDismiss, onDismiss
         {notifications.map(n => (
           <div key={n.id} className="flex items-center gap-3 py-1.5">
             {/* Icon */}
-            {n.senderAvatarUrl ? (
+            {n.type === 'price_alert' ? (
+              <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center shrink-0">
+                {n.sentiment === 'negative'
+                  ? <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                  : <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                }
+              </div>
+            ) : n.senderAvatarUrl ? (
               <CroppedImage
                 src={n.senderAvatarUrl}
                 alt=""
@@ -38,20 +45,22 @@ export default function NotificationBanner({ notifications, onDismiss, onDismiss
             {/* Message */}
             <span className="text-sm text-neutral-300 flex-1 min-w-0 truncate">{n.message}</span>
 
-            {/* Action */}
-            <button
-              onClick={() => {
-                if (n.type === 'friend_request') {
-                  onOpenFriends()
-                } else {
-                  onViewFriend(n)
-                }
-                onDismiss(n.id)
-              }}
-              className="text-xs font-medium text-gold-400 hover:text-gold-300 transition shrink-0"
-            >
-              View
-            </button>
+            {/* Action — price alerts only get dismiss, no "View" */}
+            {n.type !== 'price_alert' && (
+              <button
+                onClick={() => {
+                  if (n.type === 'friend_request') {
+                    onOpenFriends()
+                  } else {
+                    onViewFriend(n)
+                  }
+                  onDismiss(n.id)
+                }}
+                className="text-xs font-medium text-gold-400 hover:text-gold-300 transition shrink-0"
+              >
+                View
+              </button>
+            )}
 
             {/* Dismiss */}
             <button

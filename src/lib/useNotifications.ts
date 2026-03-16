@@ -4,8 +4,9 @@ import type { Friendship, UserProfile, CropArea } from '../types'
 
 export interface AppNotification {
   id: string
-  type: 'friend_request' | 'collection_shared'
+  type: 'friend_request' | 'collection_shared' | 'price_alert'
   message: string
+  sentiment?: 'positive' | 'negative'
   senderUserId: string | null
   senderName: string | null
   senderAvatarUrl: string | null
@@ -27,7 +28,7 @@ function saveDismissed(ids: Set<string>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
 }
 
-export function useNotifications(userId: string | undefined, pending: Friendship[]) {
+export function useNotifications(userId: string | undefined, pending: Friendship[], priceAlerts: AppNotification[] = []) {
   const [shareNotifs, setShareNotifs] = useState<AppNotification[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(getDismissed)
 
@@ -98,7 +99,7 @@ export function useNotifications(userId: string | undefined, pending: Friendship
   }))
 
   // Combine and filter dismissed
-  const all = [...friendNotifs, ...shareNotifs].filter(n => !dismissed.has(n.id))
+  const all = [...friendNotifs, ...shareNotifs, ...priceAlerts].filter(n => !dismissed.has(n.id))
 
   const dismiss = (id: string) => {
     setDismissed(prev => {
