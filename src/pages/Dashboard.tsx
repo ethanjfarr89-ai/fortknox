@@ -188,7 +188,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         onOpenProfile={() => setShowProfile(true)}
         onOpenFriends={() => setShowFriends(true)}
       />
-      <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} privacyMode={privacyMode} />
+      <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {tab === 'portfolio' && (
@@ -444,6 +444,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       privacyMode={privacyMode}
+                      onTogglePrivacy={togglePrivacy}
                       cardPrefs={cardPrefs}
                     />
                   </div>

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import type { CropArea } from '../types'
 
 interface Props {
@@ -8,42 +7,37 @@ interface Props {
   className?: string
 }
 
+/**
+ * Displays a cropped image using pure CSS (no canvas, no CORS issues).
+ * crop values are percentages (0–100) of the original image.
+ */
 export default function CroppedImage({ src, alt, crop, className = '' }: Props) {
-  const [croppedSrc, setCroppedSrc] = useState(src)
+  if (!crop || (crop.width >= 99.9 && crop.height >= 99.9)) {
+    return <img src={src} alt={alt} className={className} />
+  }
 
-  useEffect(() => {
-    if (!crop || crop.width >= 99.9) {
-      setCroppedSrc(src)
-      return
-    }
+  // Scale the image so the crop region fills the container
+  const scaleX = 100 / crop.width
+  const scaleY = 100 / crop.height
 
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { setCroppedSrc(src); return }
+  // Position the image so the crop region's top-left aligns with the container's top-left
+  const left = -(crop.x / crop.width) * 100
+  const top = -(crop.y / crop.height) * 100
 
-      // crop values are percentages (0-100) of the original image
-      const sx = (crop.x / 100) * img.naturalWidth
-      const sy = (crop.y / 100) * img.naturalHeight
-      const sw = (crop.width / 100) * img.naturalWidth
-      const sh = (crop.height / 100) * img.naturalHeight
-
-      canvas.width = sw
-      canvas.height = sh
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
-
-      try {
-        setCroppedSrc(canvas.toDataURL('image/jpeg', 0.9))
-      } catch {
-        // CORS blocked canvas - fall back to original
-        setCroppedSrc(src)
-      }
-    }
-    img.onerror = () => setCroppedSrc(src)
-    img.src = src
-  }, [src, crop])
-
-  return <img src={croppedSrc} alt={alt} className={className} />
+  return (
+    <div className={className} style={{ position: 'relative', overflow: 'hidden' }}>
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          position: 'absolute',
+          width: `${scaleX * 100}%`,
+          height: `${scaleY * 100}%`,
+          left: `${left}%`,
+          top: `${top}%`,
+          maxWidth: 'none',
+        }}
+      />
+    </div>
+  )
 }
