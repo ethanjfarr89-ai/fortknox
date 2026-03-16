@@ -46,10 +46,11 @@ export function usePieces(userId: string | undefined) {
       .select()
       .single()
 
-    if (!error && data) {
-      setPieces(prev => prev.map(p => (p.id === id ? normalizePiece(data) : p)))
+    const normalized = !error && data ? normalizePiece(data) : null
+    if (normalized) {
+      setPieces(prev => prev.map(p => (p.id === id ? normalized : p)))
     }
-    return { data, error }
+    return { data: normalized, error }
   }
 
   const deletePiece = async (id: string) => {

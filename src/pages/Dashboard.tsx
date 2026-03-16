@@ -275,12 +275,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   }, [collectionPieces])
 
   const handleSave = async (data: JewelryPieceInsert) => {
-    if (editingPiece) return updatePiece(editingPiece.id, data)
+    if (editingPiece) {
+      const result = await updatePiece(editingPiece.id, data)
+      // Update viewingPiece so PieceDetail shows fresh data after saving
+      if (result.data) setViewingPiece(result.data)
+      return result
+    }
     return addPiece(data)
   }
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this piece? This cannot be undone.')) await deletePiece(id)
+    if (window.confirm('Delete this piece? This cannot be undone.')) {
+      await deletePiece(id)
+      if (viewingPiece?.id === id) setViewingPiece(null)
+    }
   }
 
   const handleEdit = (piece: JewelryPiece) => {
