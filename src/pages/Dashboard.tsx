@@ -371,6 +371,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             pieces={pieces}
             onAdd={addBoard}
             onDelete={deleteBoard}
+            onUpdatePiece={updatePiece}
           />
         )}
 

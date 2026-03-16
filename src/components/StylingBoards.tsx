@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, X, Check, Image as ImageIcon } from 'lucide-react'
-import type { StylingBoard, JewelryPiece } from '../types'
+import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search } from 'lucide-react'
+import type { StylingBoard, JewelryPiece, JewelryPieceInsert } from '../types'
 import PhotoManager from './PhotoManager'
 import Lightbox from './Lightbox'
 
@@ -9,6 +9,7 @@ interface Props {
   pieces: JewelryPiece[]
   onAdd: (name: string, pieceIds: string[], photoUrls: string[], description?: string) => Promise<{ error: unknown }>
   onDelete: (id: string) => Promise<{ error: unknown }>
+  onUpdatePiece: (id: string, updates: Partial<JewelryPieceInsert>) => Promise<{ error: unknown }>
 }
 
 interface StylingPhoto {
@@ -16,7 +17,7 @@ interface StylingPhoto {
   pieceIds: string[]
 }
 
-export default function StylingBoards({ boards, pieces, onAdd, onDelete }: Props) {
+export default function StylingBoards({ boards, pieces, onAdd, onDelete, onUpdatePiece }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -25,6 +26,8 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete }: Props
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null)
   const [selectedForBoard, setSelectedForBoard] = useState<Set<string>>(new Set())
   const [viewingPhoto, setViewingPhoto] = useState<StylingPhoto | null>(null)
+  const [showTagPicker, setShowTagPicker] = useState(false)
+  const [tagSearch, setTagSearch] = useState('')
 
   const collectionPieces = pieces.filter(p => !p.is_wishlist)
 
@@ -75,6 +78,24 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete }: Props
     setSelectedForBoard(new Set())
     setShowForm(false)
     setSaving(false)
+  }
+
+  const tagPiece = async (piece: JewelryPiece, photoUrl: string) => {
+    const current = piece.styling_photo_urls ?? []
+    if (current.includes(photoUrl)) return
+    await onUpdatePiece(piece.id, { styling_photo_urls: [...current, photoUrl] })
+    // Update viewingPhoto to include the new piece
+    if (viewingPhoto) {
+      setViewingPhoto({ ...viewingPhoto, pieceIds: [...viewingPhoto.pieceIds, piece.id] })
+    }
+  }
+
+  const untagPiece = async (piece: JewelryPiece, photoUrl: string) => {
+    const current = piece.styling_photo_urls ?? []
+    await onUpdatePiece(piece.id, { styling_photo_urls: current.filter(u => u !== photoUrl) })
+    if (viewingPhoto) {
+      setViewingPhoto({ ...viewingPhoto, pieceIds: viewingPhoto.pieceIds.filter(id => id !== piece.id) })
+    }
   }
 
   const inputCls = 'w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500'
@@ -213,41 +234,109 @@ export default function StylingBoards({ boards, pieces, onAdd, onDelete }: Props
       </div>
 
       {/* Photo detail modal */}
-      {viewingPhoto && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8 px-4">
-          <div className="bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md border border-neutral-800">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-              <h3 className="text-sm font-semibold text-white">Styling Photo</h3>
-              <button onClick={() => setViewingPhoto(null)} className="p-1 hover:bg-neutral-800 rounded-lg transition">
-                <X className="w-5 h-5 text-neutral-500" />
-              </button>
-            </div>
-            <div className="p-4">
-              <img
-                src={viewingPhoto.url}
-                alt=""
-                className="w-full rounded-lg mb-4 cursor-pointer"
-                onClick={() => setLightbox({ photos: [viewingPhoto.url], index: 0 })}
-              />
-              <h4 className="text-xs font-medium text-neutral-400 mb-2">Pieces in this photo</h4>
-              {viewingPhoto.pieceIds.length === 0 ? (
-                <p className="text-xs text-neutral-600">No pieces connected.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {collectionPieces.filter(p => viewingPhoto.pieceIds.includes(p.id)).map(p => (
-                    <div key={p.id} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 rounded-lg">
-                      {p.photo_urls?.[0] && (
-                        <img src={p.photo_urls[0]} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
-                      )}
-                      <span className="text-sm text-neutral-300 truncate">{p.name}</span>
+      {viewingPhoto && (() => {
+        const taggedPieces = collectionPieces.filter(p => viewingPhoto.pieceIds.includes(p.id))
+        const untaggedPieces = collectionPieces.filter(p => !viewingPhoto.pieceIds.includes(p.id))
+        const filteredUntagged = tagSearch
+          ? untaggedPieces.filter(p => p.name.toLowerCase().includes(tagSearch.toLowerCase()))
+          : untaggedPieces
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8 px-4">
+            <div className="bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md border border-neutral-800">
+              <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+                <h3 className="text-sm font-semibold text-white">Styling Photo</h3>
+                <button onClick={() => { setViewingPhoto(null); setShowTagPicker(false); setTagSearch('') }} className="p-1 hover:bg-neutral-800 rounded-lg transition">
+                  <X className="w-5 h-5 text-neutral-500" />
+                </button>
+              </div>
+              <div className="p-4 max-h-[80vh] overflow-y-auto">
+                <img
+                  src={viewingPhoto.url}
+                  alt=""
+                  className="w-full rounded-lg mb-4 cursor-pointer"
+                  onClick={() => setLightbox({ photos: [viewingPhoto.url], index: 0 })}
+                />
+                <h4 className="text-xs font-medium text-neutral-400 mb-2">Tagged pieces</h4>
+                {taggedPieces.length === 0 ? (
+                  <p className="text-xs text-neutral-600 mb-3">No pieces tagged yet.</p>
+                ) : (
+                  <div className="space-y-1.5 mb-3">
+                    {taggedPieces.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 rounded-lg group/tag">
+                        {p.photo_urls?.[0] && (
+                          <img src={p.photo_urls[0]} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                        )}
+                        <span className="text-sm text-neutral-300 truncate flex-1">{p.name}</span>
+                        <button
+                          onClick={() => untagPiece(p, viewingPhoto.url)}
+                          className="p-1 text-neutral-600 hover:text-red-400 opacity-0 group-hover/tag:opacity-100 transition shrink-0"
+                          title="Remove tag"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tag a piece button / picker */}
+                {!showTagPicker ? (
+                  <button
+                    onClick={() => setShowTagPicker(true)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 border border-dashed border-neutral-700 rounded-lg text-sm text-neutral-400 hover:border-gold-400/40 hover:text-gold-400 transition"
+                  >
+                    <Tag className="w-4 h-4" />
+                    Tag a piece
+                  </button>
+                ) : (
+                  <div className="border border-neutral-700 rounded-lg overflow-hidden">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-500" />
+                      <input
+                        type="text"
+                        value={tagSearch}
+                        onChange={e => setTagSearch(e.target.value)}
+                        placeholder="Search pieces..."
+                        className="w-full pl-9 pr-3 py-2 bg-neutral-800 border-b border-neutral-700 text-sm text-white placeholder-neutral-500 outline-none focus:ring-1 focus:ring-gold-400"
+                        autoFocus
+                      />
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredUntagged.length === 0 ? (
+                        <p className="text-xs text-neutral-600 p-3 text-center">
+                          {untaggedPieces.length === 0 ? 'All pieces are tagged' : 'No matches'}
+                        </p>
+                      ) : (
+                        filteredUntagged.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => tagPiece(p, viewingPhoto.url)}
+                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-neutral-800 transition text-left"
+                          >
+                            {p.photo_urls?.[0] ? (
+                              <img src={p.photo_urls[0]} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+                            ) : (
+                              <div className="w-7 h-7 rounded bg-neutral-700 shrink-0" />
+                            )}
+                            <span className="text-sm text-neutral-300 truncate">{p.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setShowTagPicker(false); setTagSearch('') }}
+                      className="w-full px-3 py-2 text-xs text-neutral-500 hover:text-neutral-300 border-t border-neutral-700 transition"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* New board form */}
       {showForm && (
