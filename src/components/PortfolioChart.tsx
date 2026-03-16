@@ -26,10 +26,12 @@ function getAcquisitionDate(piece: JewelryPiece): string | null {
   return piece.created_at?.split('T')[0] ?? null
 }
 
+/** Calculate piece value — must match PortfolioSummary logic exactly */
 function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationMode): number {
   if (mode === 'appraised' && piece.appraised_value != null) return piece.appraised_value
-  const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices) ?? 0
-  return melt + calculateGemstoneValue(piece.gemstones)
+  const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+  const gemVal = calculateGemstoneValue(piece.gemstones)
+  return (melt ?? 0) + gemVal
 }
 
 export default function PortfolioChart({ pieces, prices, valuationMode }: Props) {
@@ -103,12 +105,11 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
         }
       }
 
-      // Always use current live prices for today's data point
+      // Always use current live prices for today — sum ALL pieces
+      // (matches PortfolioSummary which counts every piece, not just dated ones)
       let todayValue = 0
-      for (const { piece, acquiredDate } of piecesWithDates) {
-        if (acquiredDate <= today) {
-          todayValue += getPieceValue(piece, prices, valuationMode)
-        }
+      for (const piece of pieces) {
+        todayValue += getPieceValue(piece, prices, valuationMode)
       }
       if (todayValue > 0) {
         // Replace the last point if it's today (historical close), or append
