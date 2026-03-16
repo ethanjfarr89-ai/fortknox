@@ -162,12 +162,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         {tab === 'portfolio' && (
           <>
             <PortfolioSummary
-              pieces={activePieces}
+              pieces={filtered}
               prices={prices}
               valuationMode={valuationMode}
               onToggleMode={() => setValuationMode(m => m === 'melt' ? 'appraised' : 'melt')}
             />
-            <PortfolioChart pieces={activePieces} prices={prices} valuationMode={valuationMode} />
+            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} />
           </>
         )}
 
