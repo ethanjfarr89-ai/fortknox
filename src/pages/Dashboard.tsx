@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUpDown, Share2, Gem } from 'lucide-react'
-import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category } from '../types'
-import { CATEGORIES } from '../types'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import { Plus, Search, FolderOpen, Settings, ArrowUpDown, Share2, Gem, SlidersHorizontal } from 'lucide-react'
+import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs } from '../types'
+import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { usePieces } from '../lib/usePieces'
 import { useSpotPrices } from '../lib/useSpotPrices'
 import { useSnapshots } from '../lib/useSnapshots'
@@ -54,6 +54,38 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight'>('name')
+  const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('trove_privacy') === 'true')
+  const [cardPrefs, setCardPrefs] = useState<CardDisplayPrefs>(() => {
+    try { return JSON.parse(localStorage.getItem('trove_card_prefs') ?? '') }
+    catch { return DEFAULT_CARD_PREFS }
+  })
+  const [showCardSettings, setShowCardSettings] = useState(false)
+  const cardSettingsRef = useRef<HTMLDivElement>(null)
+
+  // Close card settings on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (cardSettingsRef.current && !cardSettingsRef.current.contains(e.target as Node)) setShowCardSettings(false)
+    }
+    if (showCardSettings) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showCardSettings])
+
+  const togglePrivacy = () => {
+    setPrivacyMode(prev => {
+      const next = !prev
+      localStorage.setItem('trove_privacy', String(next))
+      return next
+    })
+  }
+
+  const updateCardPref = (key: keyof CardDisplayPrefs) => {
+    setCardPrefs(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      localStorage.setItem('trove_card_prefs', JSON.stringify(next))
+      return next
+    })
+  }
 
   const incomingRequests = pending.filter(f => f.addressee_id === userId)
 
@@ -156,7 +188,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         onOpenProfile={() => setShowProfile(true)}
         onOpenFriends={() => setShowFriends(true)}
       />
-      <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
+      <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} privacyMode={privacyMode} />
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {tab === 'portfolio' && (
@@ -166,8 +198,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               prices={prices}
               valuationMode={valuationMode}
               onToggleMode={() => setValuationMode(m => m === 'melt' ? 'appraised' : 'melt')}
+              privacyMode={privacyMode}
+              onTogglePrivacy={togglePrivacy}
             />
-            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} />
+            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} />
           </>
         )}
 
@@ -280,7 +314,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1.5 ml-auto">
+            <div className="flex items-center gap-2 ml-auto">
               <ArrowUpDown className="w-3.5 h-3.5 text-neutral-500" />
               <select
                 value={sortBy}
@@ -291,6 +325,41 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                 <option value="value">Value</option>
                 <option value="weight">Weight</option>
               </select>
+              <div className="relative" ref={cardSettingsRef}>
+                <button
+                  onClick={() => setShowCardSettings(!showCardSettings)}
+                  className="p-1.5 text-neutral-500 hover:text-gold-400 transition rounded-md hover:bg-neutral-800"
+                  title="Card display settings"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                </button>
+                {showCardSettings && (
+                  <div className="absolute right-0 mt-1 w-48 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 py-2">
+                    <p className="px-3 py-1.5 text-xs font-medium text-neutral-500 uppercase tracking-wide">Show on cards</p>
+                    {([
+                      ['value', 'Value'],
+                      ['roi', 'ROI / Change'],
+                      ['weight', 'Weight'],
+                      ['metal', 'Metal & Karat'],
+                      ['category', 'Category'],
+                      ['gemstones', 'Gemstones'],
+                    ] as [keyof CardDisplayPrefs, string][]).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => updateCardPref(key)}
+                        className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 transition"
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                          cardPrefs[key] ? 'bg-gold-400 border-gold-400' : 'border-neutral-600'
+                        }`}>
+                          {cardPrefs[key] && <span className="text-black text-xs font-bold">✓</span>}
+                        </div>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -374,6 +443,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       valuationMode={valuationMode}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      privacyMode={privacyMode}
+                      cardPrefs={cardPrefs}
                     />
                   </div>
                 ))}

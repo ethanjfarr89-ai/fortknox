@@ -150,3 +150,21 @@ export interface Friendship {
 }
 
 export type ValuationMode = 'melt' | 'appraised'
+
+export interface CardDisplayPrefs {
+  value: boolean
+  roi: boolean
+  weight: boolean
+  metal: boolean
+  category: boolean
+  gemstones: boolean
+}
+
+export const DEFAULT_CARD_PREFS: CardDisplayPrefs = {
+  value: true,
+  roi: true,
+  weight: true,
+  metal: true,
+  category: true,
+  gemstones: true,
+}

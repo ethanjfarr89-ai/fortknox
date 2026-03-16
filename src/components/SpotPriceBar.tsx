@@ -5,6 +5,7 @@ interface Props {
   prices: SpotPrices
   loading: boolean
   onRefresh: () => void
+  privacyMode?: boolean
 }
 
 function fmt(val: number | null) {
@@ -12,15 +13,15 @@ function fmt(val: number | null) {
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
 }
 
-export default function SpotPriceBar({ prices, loading, onRefresh }: Props) {
+export default function SpotPriceBar({ prices, loading, onRefresh, privacyMode }: Props) {
   return (
     <div className="bg-neutral-900 border-b border-neutral-800">
       <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-4 overflow-x-auto text-sm">
         <span className="font-medium text-neutral-400 shrink-0">Spot Prices</span>
-        <span className="text-gold-400 shrink-0">Gold {fmt(prices.gold)}/oz</span>
-        <span className="text-neutral-400 shrink-0">Silver {fmt(prices.silver)}/oz</span>
-        <span className="text-neutral-400 shrink-0">Platinum {fmt(prices.platinum)}/oz</span>
-        <span className="text-neutral-400 shrink-0">Palladium {fmt(prices.palladium)}/oz</span>
+        <span className="text-gold-400 shrink-0">Gold {privacyMode ? '••••' : fmt(prices.gold)}/oz</span>
+        <span className="text-neutral-400 shrink-0">Silver {privacyMode ? '••••' : fmt(prices.silver)}/oz</span>
+        <span className="text-neutral-400 shrink-0">Platinum {privacyMode ? '••••' : fmt(prices.platinum)}/oz</span>
+        <span className="text-neutral-400 shrink-0">Palladium {privacyMode ? '••••' : fmt(prices.palladium)}/oz</span>
         <button
           onClick={onRefresh}
           disabled={loading}

@@ -1,6 +1,6 @@
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown } from 'lucide-react'
-import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
-import { CATEGORIES } from '../types'
+import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
+import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
 import CroppedImage from './CroppedImage'
 
@@ -10,6 +10,8 @@ interface Props {
   valuationMode: ValuationMode
   onEdit: (piece: JewelryPiece) => void
   onDelete: (id: string) => void
+  privacyMode?: boolean
+  cardPrefs?: CardDisplayPrefs
 }
 
 function fmtCurrency(val: number | null) {
@@ -28,7 +30,9 @@ function karatLabel(piece: JewelryPiece) {
   return ''
 }
 
-export default function PieceCard({ piece, prices, valuationMode, onEdit, onDelete }: Props) {
+export default function PieceCard({ piece, prices, valuationMode, onEdit, onDelete, privacyMode, cardPrefs }: Props) {
+  const prefs = cardPrefs ?? DEFAULT_CARD_PREFS
+
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
   const gemValue = calculateGemstoneValue(piece.gemstones)
   const meltValue = meltOnly != null ? meltOnly + gemValue : gemValue > 0 ? gemValue : null
@@ -44,6 +48,10 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   // Profile photo
   const photoUrl = piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0]
   const categoryLabel = CATEGORIES.find(c => c.value === piece.category)?.label
+
+  const showValue = prefs.value && !privacyMode
+  const showRoi = prefs.roi && !privacyMode
+  const showInfoRow = prefs.category || prefs.metal || prefs.weight
 
   return (
     <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group ${
@@ -97,45 +105,55 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
       <div className="p-4">
         <h3 className="font-semibold text-white truncate">{piece.name}</h3>
 
-        <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400 flex-wrap">
-          {categoryLabel && (
-            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-300">
-              {categoryLabel}
-            </span>
-          )}
-          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-            isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
-            piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
-            'bg-blue-900/30 text-blue-400'
-          }`}>
-            {metalLabels[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
-          </span>
-          {piece.metal_weight_grams && (
-            <span className="flex items-center gap-0.5">
-              <Weight className="w-3 h-3" />
-              {piece.metal_weight_grams}g
-            </span>
-          )}
-        </div>
-
-        <div className="mt-3 pt-3 border-t border-neutral-800">
-          <div className="flex items-baseline justify-between">
-            <span className="text-lg font-bold text-gold-400">{fmtCurrency(displayValue)}</span>
-            <span className="text-xs text-neutral-600">
-              {valuationMode === 'appraised' && piece.appraised_value != null ? 'appraised' : 'melt'}
-            </span>
+        {showInfoRow && (
+          <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400 flex-wrap">
+            {prefs.category && categoryLabel && (
+              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-300">
+                {categoryLabel}
+              </span>
+            )}
+            {prefs.metal && (
+              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                isGoldType(piece.metal_type) ? 'bg-gold-400/15 text-gold-400' :
+                piece.metal_type === 'silver' ? 'bg-neutral-800 text-neutral-300' :
+                'bg-blue-900/30 text-blue-400'
+              }`}>
+                {metalLabels[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
+              </span>
+            )}
+            {prefs.weight && piece.metal_weight_grams && (
+              <span className="flex items-center gap-0.5">
+                <Weight className="w-3 h-3" />
+                {piece.metal_weight_grams}g
+              </span>
+            )}
           </div>
+        )}
 
-          {/* ROI */}
-          {roi !== null && (
-            <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {roi >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {roi >= 0 ? '+' : ''}{roi.toFixed(1)}% from {fmtCurrency(piece.price_paid)}
+        {(showValue || (prefs.value && privacyMode)) && (
+          <div className="mt-3 pt-3 border-t border-neutral-800">
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-bold text-gold-400">
+                {privacyMode ? '••••' : fmtCurrency(displayValue)}
+              </span>
+              {!privacyMode && (
+                <span className="text-xs text-neutral-600">
+                  {valuationMode === 'appraised' && piece.appraised_value != null ? 'appraised' : 'melt'}
+                </span>
+              )}
             </div>
-          )}
-        </div>
 
-        {piece.gemstones?.length > 0 && (
+            {/* ROI */}
+            {showRoi && roi !== null && (
+              <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {roi >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {roi >= 0 ? '+' : ''}{roi.toFixed(1)}% from {fmtCurrency(piece.price_paid)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {prefs.gemstones && piece.gemstones?.length > 0 && (
           <p className="text-xs text-neutral-500 mt-2 truncate">
             {piece.gemstones.map(g => g.stone_type).filter(Boolean).join(', ')}
           </p>

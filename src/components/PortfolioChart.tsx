@@ -8,6 +8,7 @@ interface Props {
   pieces: JewelryPiece[]
   prices: SpotPrices
   valuationMode: ValuationMode
+  privacyMode?: boolean
 }
 
 const ranges = [
@@ -34,7 +35,7 @@ function getPieceValue(piece: JewelryPiece, prices: SpotPrices, mode: ValuationM
   return (melt ?? 0) + gemVal
 }
 
-export default function PortfolioChart({ pieces, prices, valuationMode }: Props) {
+export default function PortfolioChart({ pieces, prices, valuationMode, privacyMode }: Props) {
   const [range, setRange] = useState<string>('ALL')
   const { historicalPrices, loading: histLoading } = useHistoricalPrices()
 
@@ -208,7 +209,12 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
           ))}
         </div>
       </div>
-      <div className="h-52">
+      <div className="h-52 relative">
+        {privacyMode && (
+          <div className="absolute inset-0 z-10 backdrop-blur-md bg-neutral-900/40 rounded-lg flex items-center justify-center">
+            <span className="text-neutral-500 text-sm">Values hidden</span>
+          </div>
+        )}
         {data.length < 2 ? (
           <div className="flex items-center justify-center h-full text-sm text-neutral-500">
             Not enough data for this time range.
@@ -234,10 +240,11 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
                 tick={{ fill: '#525252', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={v => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`}
+                tickFormatter={v => privacyMode ? '•••' : v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`}
                 width={55}
               />
               <Tooltip
+                active={!privacyMode}
                 contentStyle={{
                   backgroundColor: '#171717',
                   border: '1px solid #333',

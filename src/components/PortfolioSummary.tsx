@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Eye, EyeOff } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
 import { calculateMeltValue, calculateGemstoneValue } from '../lib/prices'
 
@@ -7,13 +7,15 @@ interface Props {
   prices: SpotPrices
   valuationMode: ValuationMode
   onToggleMode: () => void
+  privacyMode: boolean
+  onTogglePrivacy: () => void
 }
 
 function fmt(val: number) {
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-export default function PortfolioSummary({ pieces, prices, valuationMode, onToggleMode }: Props) {
+export default function PortfolioSummary({ pieces, prices, valuationMode, onToggleMode, privacyMode, onTogglePrivacy }: Props) {
   let totalValue = 0
   let piecesWithValue = 0
 
@@ -41,8 +43,17 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
             <span className="text-sm font-medium text-gold-400 uppercase tracking-wide">
               Collection Value ({valuationMode === 'melt' ? 'Melt' : 'Appraised'})
             </span>
+            <button
+              onClick={onTogglePrivacy}
+              className="p-1 text-neutral-500 hover:text-gold-400 transition rounded"
+              title={privacyMode ? 'Show values' : 'Hide values'}
+            >
+              {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
-          <div className="text-3xl sm:text-4xl font-bold text-white">{fmt(totalValue)}</div>
+          <div className="text-3xl sm:text-4xl font-bold text-white">
+            {privacyMode ? '••••••' : fmt(totalValue)}
+          </div>
           <p className="text-sm text-neutral-500 mt-1">
             {piecesWithValue} of {pieces.length} pieces valued
           </p>
