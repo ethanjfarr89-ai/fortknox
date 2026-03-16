@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2, X, Share2, ChevronDown, ChevronUp, User, Gem, Package, Pencil } from 'lucide-react'
-import type { Collection, Friendship, JewelryPiece } from '../types'
+import type { Collection, Friendship, JewelryPiece, CollectionShare } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
 
@@ -10,7 +10,7 @@ interface Props {
   pieceCollectionMap: Record<string, string[]>
   friends: Friendship[]
   userId: string
-  shares: Record<string, string[]>
+  shares: Record<string, CollectionShare[]>
   onAdd: (name: string, description?: string) => Promise<{ error: unknown }>
   onRename: (id: string, newName: string) => Promise<{ error: unknown }>
   onDelete: (id: string) => Promise<{ error: unknown }>
@@ -247,7 +247,7 @@ export default function CollectionManager({ collections, pieces, pieceCollection
                               friends.map(f => {
                                 const friendId = getFriendUserId(f)
                                 const friendProfile = getFriendProfile(f)
-                                const isShared = sharedWith.includes(friendId)
+                                const isShared = sharedWith.some(s => s.friend_id === friendId)
 
                                 return (
                                   <button

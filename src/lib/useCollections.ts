@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { Collection } from '../types'
+import type { Collection, CollectionShare, CardDisplayPrefs } from '../types'
 
 export function useCollections(userId: string | undefined) {
   const [collections, setCollections] = useState<Collection[]>([])
   const [pieceCollectionMap, setPieceCollectionMap] = useState<Record<string, string[]>>({})
-  // shares: collectionId → array of friend user IDs
-  const [shares, setShares] = useState<Record<string, string[]>>({})
+  const [shares, setShares] = useState<Record<string, CollectionShare[]>>({})
   const [loading, setLoading] = useState(true)
 
   const fetchCollections = useCallback(async () => {
@@ -42,14 +41,14 @@ export function useCollections(userId: string | undefined) {
     if (!userId) return
     const { data } = await supabase
       .from('collection_shares')
-      .select('collection_id, friend_id')
+      .select('collection_id, friend_id, display_prefs')
 
     if (data) {
-      const map: Record<string, string[]> = {}
+      const map: Record<string, CollectionShare[]> = {}
       for (const row of data) {
-        const r = row as { collection_id: string; friend_id: string }
+        const r = row as CollectionShare
         if (!map[r.collection_id]) map[r.collection_id] = []
-        map[r.collection_id].push(r.friend_id)
+        map[r.collection_id].push(r)
       }
       setShares(map)
     }
@@ -122,9 +121,14 @@ export function useCollections(userId: string | undefined) {
       .insert({ collection_id: collectionId, friend_id: friendId })
 
     if (!error) {
+      const newShare: CollectionShare = {
+        collection_id: collectionId,
+        friend_id: friendId,
+        display_prefs: { value: true, roi: true, weight: true, metal: true, category: true, gemstones: true },
+      }
       setShares(prev => ({
         ...prev,
-        [collectionId]: [...(prev[collectionId] || []), friendId],
+        [collectionId]: [...(prev[collectionId] || []), newShare],
       }))
     }
     return { error }
@@ -140,7 +144,25 @@ export function useCollections(userId: string | undefined) {
     if (!error) {
       setShares(prev => ({
         ...prev,
-        [collectionId]: (prev[collectionId] || []).filter(id => id !== friendId),
+        [collectionId]: (prev[collectionId] || []).filter(s => s.friend_id !== friendId),
+      }))
+    }
+    return { error }
+  }
+
+  const updateSharePrefs = async (collectionId: string, friendId: string, displayPrefs: CardDisplayPrefs) => {
+    const { error } = await supabase
+      .from('collection_shares')
+      .update({ display_prefs: displayPrefs })
+      .eq('collection_id', collectionId)
+      .eq('friend_id', friendId)
+
+    if (!error) {
+      setShares(prev => ({
+        ...prev,
+        [collectionId]: (prev[collectionId] || []).map(s =>
+          s.friend_id === friendId ? { ...s, display_prefs: displayPrefs } : s
+        ),
       }))
     }
     return { error }
@@ -150,7 +172,7 @@ export function useCollections(userId: string | undefined) {
     collections, pieceCollectionMap, shares, loading,
     addCollection, renameCollection, deleteCollection,
     assignPiece, unassignPiece,
-    shareCollection, unshareCollection,
+    shareCollection, unshareCollection, updateSharePrefs,
     refetch: fetchCollections,
   }
 }

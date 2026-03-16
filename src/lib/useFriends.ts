@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { Friendship, UserProfile, JewelryPiece, Collection } from '../types'
+import type { Friendship, UserProfile, JewelryPiece, Collection, CardDisplayPrefs } from '../types'
+
+export interface SharedCollection extends Collection {
+  display_prefs: CardDisplayPrefs
+}
 
 export function useFriends(userId: string | undefined) {
   const [friends, setFriends] = useState<Friendship[]>([])
@@ -86,6 +90,7 @@ export function useFriends(userId: string | undefined) {
     await fetchFriends()
   }
 
+  /** Fetch friend's pieces — RLS ensures only pieces in shared collections are returned */
   const fetchFriendPieces = async (friendUserId: string): Promise<JewelryPiece[]> => {
     const { data } = await supabase
       .from('pieces')
@@ -96,23 +101,42 @@ export function useFriends(userId: string | undefined) {
     return (data as JewelryPiece[]) ?? []
   }
 
-  /** Fetch collections a friend has shared with the current user */
-  const fetchSharedCollections = async (friendUserId: string): Promise<Collection[]> => {
-    const { data } = await supabase
+  /** Fetch collections a friend has shared with the current user, including display_prefs */
+  const fetchSharedCollections = async (friendUserId: string): Promise<SharedCollection[]> => {
+    // Get collection_shares where friend_id = current user, then join with collections
+    const { data: sharesData } = await supabase
+      .from('collection_shares')
+      .select('collection_id, display_prefs')
+      .eq('friend_id', userId ?? '')
+
+    if (!sharesData || sharesData.length === 0) return []
+
+    const shareMap: Record<string, CardDisplayPrefs> = {}
+    for (const row of sharesData) {
+      const r = row as { collection_id: string; display_prefs: CardDisplayPrefs }
+      shareMap[r.collection_id] = r.display_prefs
+    }
+
+    const { data: collectionsData } = await supabase
       .from('collections')
       .select('*')
       .eq('user_id', friendUserId)
+      .in('id', Object.keys(shareMap))
       .order('name')
-    // RLS will filter to only collections shared with auth.uid()
-    return (data as Collection[]) ?? []
+
+    if (!collectionsData) return []
+
+    return (collectionsData as Collection[]).map(c => ({
+      ...c,
+      display_prefs: shareMap[c.id] ?? { value: true, roi: true, weight: true, metal: true, category: true, gemstones: true },
+    }))
   }
 
-  /** Fetch piece→collection mappings for a friend's shared collections */
+  /** Fetch piece→collection mappings for shared collections */
   const fetchSharedPieceCollections = async (): Promise<Record<string, string[]>> => {
     const { data } = await supabase
       .from('piece_collections')
       .select('piece_id, collection_id')
-    // RLS will filter to only shared collection assignments
     const map: Record<string, string[]> = {}
     if (data) {
       for (const row of data) {

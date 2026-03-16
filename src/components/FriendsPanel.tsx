@@ -1,33 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Check, X, Users, ChevronRight, User } from 'lucide-react'
-import type { Friendship, UserProfile, SpotPrices, JewelryPiece, Collection } from '../types'
+import type { Friendship, UserProfile } from '../types'
 import { useScrollLock } from '../lib/useScrollLock'
 import CroppedImage from './CroppedImage'
-import FriendProfile from './FriendProfile'
 
 interface Props {
   friends: Friendship[]
   pending: Friendship[]
   userId: string
-  prices: SpotPrices
   onSendRequest: (targetUserId: string) => Promise<{ error: unknown }>
   onSearchProfiles: (query: string) => Promise<UserProfile[]>
   onRespond: (friendshipId: string, accept: boolean) => Promise<void>
-  onRemove: (friendshipId: string) => Promise<void>
-  onFetchFriendPieces: (friendUserId: string) => Promise<JewelryPiece[]>
-  onFetchSharedCollections: (friendUserId: string) => Promise<Collection[]>
-  onFetchSharedPieceCollections: () => Promise<Record<string, string[]>>
+  onViewFriend: (friendship: Friendship) => void
   onClose: () => void
 }
 
-export default function FriendsPanel({ friends, pending, userId, prices, onSendRequest, onSearchProfiles, onRespond, onRemove, onFetchFriendPieces, onFetchSharedCollections, onFetchSharedPieceCollections, onClose }: Props) {
+export default function FriendsPanel({ friends, pending, userId, onSendRequest, onSearchProfiles, onRespond, onViewFriend, onClose }: Props) {
   useScrollLock()
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserProfile[]>([])
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-  const [viewingFriend, setViewingFriend] = useState<Friendship | null>(null)
 
   const incomingRequests = pending.filter(f => f.addressee_id === userId)
   const outgoingRequests = pending.filter(f => f.requester_id === userId)
@@ -37,7 +31,6 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
     if (q.trim().length < 2) { setSearchResults([]); return }
     setSearching(true)
     const results = await onSearchProfiles(q)
-    // Filter out existing friends and pending requests
     const existingIds = new Set([
       ...friends.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id),
       ...pending.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id),
@@ -58,22 +51,6 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
     if (error) setError((error as { message?: string }).message ?? 'Failed to send request')
     else { setQuery(''); setSearchResults([]) }
     setSending(false)
-  }
-
-  // Friend profile view
-  if (viewingFriend && viewingFriend.friend_profile) {
-    return (
-      <FriendProfile
-        profile={viewingFriend.friend_profile}
-        prices={prices}
-        fetchPieces={onFetchFriendPieces}
-        fetchSharedCollections={onFetchSharedCollections}
-        fetchSharedPieceCollections={onFetchSharedPieceCollections}
-        onRemove={() => { onRemove(viewingFriend.id); setViewingFriend(null) }}
-        onBack={() => setViewingFriend(null)}
-        onClose={onClose}
-      />
-    )
   }
 
   return (
@@ -100,7 +77,6 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                 className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500"
                 placeholder="Search by display name..."
               />
-              {/* Autocomplete dropdown */}
               {query.trim().length >= 2 && (searchResults.length > 0 || searching) && (
                 <div className="absolute z-10 left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl overflow-hidden">
                   {searching ? (
@@ -199,7 +175,7 @@ export default function FriendsPanel({ friends, pending, userId, prices, onSendR
                 {friends.map(f => (
                   <button
                     key={f.id}
-                    onClick={() => setViewingFriend(f)}
+                    onClick={() => { onViewFriend(f); onClose() }}
                     className="w-full flex items-center justify-between bg-neutral-800 rounded-lg p-3 hover:bg-neutral-700 transition"
                   >
                     <div className="flex items-center gap-2">

@@ -105,21 +105,18 @@ export interface PortfolioSnapshot {
   recorded_at: string
 }
 
-export type PrivacyLevel = 'private' | 'friends' | 'public'
-
-export interface PrivacySettings {
-  show_values: PrivacyLevel
-  show_pieces: PrivacyLevel
-  show_photos: PrivacyLevel
-}
-
 export interface UserProfile {
   id: string
   display_name: string | null
   avatar_url: string | null
   avatar_crop: CropArea | null
-  privacy_settings: PrivacySettings | null
   card_display_prefs: CardDisplayPrefs | null
+}
+
+export interface CollectionShare {
+  collection_id: string
+  friend_id: string
+  display_prefs: CardDisplayPrefs
 }
 
 export interface Collection {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal } from 'lucide-react'
-import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs } from '../types'
+import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { usePieces } from '../lib/usePieces'
 import { useSpotPrices } from '../lib/useSpotPrices'
@@ -20,6 +20,7 @@ import PieceDetail from '../components/PieceDetail'
 import StylingBoards from '../components/StylingBoards'
 import ProfileSettings from '../components/ProfileSettings'
 import FriendsPanel from '../components/FriendsPanel'
+import FriendProfile from '../components/FriendProfile'
 import CollectionManager from '../components/CollectionManager'
 import PiecePicker from '../components/PiecePicker'
 import CollectionSharePicker from '../components/CollectionSharePicker'
@@ -36,7 +37,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
   const { saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
-  const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection } = useCollections(userId)
+  const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection, updateSharePrefs } = useCollections(userId)
   const { boards, addBoard, updateBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
 
@@ -51,6 +52,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showCollections, setShowCollections] = useState(false)
   const [showPiecePicker, setShowPiecePicker] = useState(false)
   const [showSharePicker, setShowSharePicker] = useState(false)
+  const [viewingFriend, setViewingFriend] = useState<Friendship | null>(null)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date' | 'gain_pct' | 'gain_amt'>('name')
@@ -256,6 +258,19 @@ export default function Dashboard({ userId, onSignOut }: Props) {
       <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Friend profile inline view */}
+        {viewingFriend && viewingFriend.friend_profile ? (
+          <FriendProfile
+            profile={viewingFriend.friend_profile}
+            prices={prices}
+            fetchPieces={fetchFriendPieces}
+            fetchSharedCollections={fetchSharedCollections}
+            fetchSharedPieceCollections={fetchSharedPieceCollections}
+            onRemove={() => { removeFriend(viewingFriend.id); setViewingFriend(null) }}
+            onBack={() => setViewingFriend(null)}
+          />
+        ) : (
+        <>
         {tab === 'portfolio' && (
           <>
             <PortfolioSummary
@@ -539,6 +554,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             )}
           </>
         )}
+        </>
+        )}
       </main>
 
       {/* Modals */}
@@ -580,14 +597,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           friends={friends}
           pending={pending}
           userId={userId}
-          prices={prices}
           onSendRequest={sendRequest}
           onSearchProfiles={searchProfiles}
           onRespond={respondToRequest}
-          onRemove={removeFriend}
-          onFetchFriendPieces={fetchFriendPieces}
-          onFetchSharedCollections={fetchSharedCollections}
-          onFetchSharedPieceCollections={fetchSharedPieceCollections}
+          onViewFriend={(f) => setViewingFriend(f)}
           onClose={() => setShowFriends(false)}
         />
       )}
@@ -634,6 +647,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           sharedWith={selectedCollectionShares}
           onShare={(friendId) => shareCollection(selectedCollection, friendId)}
           onUnshare={(friendId) => unshareCollection(selectedCollection, friendId)}
+          onUpdatePrefs={(friendId, prefs) => updateSharePrefs(selectedCollection, friendId, prefs)}
           onClose={() => setShowSharePicker(false)}
         />
       )}
