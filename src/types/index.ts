@@ -75,9 +75,13 @@ export interface JewelryPiece {
   pendant_width: number | null
   earring_length: number | null
   earring_width: number | null
+  ring_band_width: number | null
   watch_maker: string | null
   watch_movement: string | null
   watch_dial_size: number | null
+  watch_case_material: string | null
+  watch_band_material: string | null
+  watch_reference: string | null
   created_at: string
   updated_at: string
 }

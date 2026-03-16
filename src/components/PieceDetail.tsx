@@ -69,7 +69,10 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
   const profilePhoto = piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0]
 
   const dimInfo: string[] = []
-  if (piece.category === 'ring' && piece.ring_size) dimInfo.push(`Size ${piece.ring_size}`)
+  if (piece.category === 'ring') {
+    if (piece.ring_size) dimInfo.push(`Size ${piece.ring_size}`)
+    if (piece.ring_band_width) dimInfo.push(`${piece.ring_band_width}mm band`)
+  }
   if (piece.category === 'chain' || piece.category === 'necklace') {
     if (piece.chain_length) dimInfo.push(`${piece.chain_length}" long`)
     if (piece.chain_width) dimInfo.push(`${piece.chain_width}mm wide`)
@@ -94,8 +97,11 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, pieceColle
   }
   if (piece.category === 'watch') {
     if (piece.watch_maker) dimInfo.push(piece.watch_maker)
+    if (piece.watch_reference) dimInfo.push(`Ref. ${piece.watch_reference}`)
     if (piece.watch_movement) dimInfo.push(piece.watch_movement)
     if (piece.watch_dial_size) dimInfo.push(`${piece.watch_dial_size}mm dial`)
+    if (piece.watch_case_material) dimInfo.push(`${piece.watch_case_material} case`)
+    if (piece.watch_band_material) dimInfo.push(`${piece.watch_band_material} band`)
   }
 
   const assignedCollections = collections?.filter(c => pieceCollections?.includes(c.id)) ?? []

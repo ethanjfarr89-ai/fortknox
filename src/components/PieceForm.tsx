@@ -74,9 +74,13 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
   const [pendantWidth, setPendantWidth] = useState(piece?.pendant_width?.toString() ?? '')
   const [earringLength, setEarringLength] = useState(piece?.earring_length?.toString() ?? '')
   const [earringWidth, setEarringWidth] = useState(piece?.earring_width?.toString() ?? '')
+  const [ringBandWidth, setRingBandWidth] = useState(piece?.ring_band_width?.toString() ?? '')
   const [watchMaker, setWatchMaker] = useState(piece?.watch_maker ?? '')
   const [watchMovement, setWatchMovement] = useState(piece?.watch_movement ?? '')
   const [watchDialSize, setWatchDialSize] = useState(piece?.watch_dial_size?.toString() ?? '')
+  const [watchCaseMaterial, setWatchCaseMaterial] = useState(piece?.watch_case_material ?? '')
+  const [watchBandMaterial, setWatchBandMaterial] = useState(piece?.watch_band_material ?? '')
+  const [watchReference, setWatchReference] = useState(piece?.watch_reference ?? '')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -125,9 +129,13 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
       pendant_width: numOrNull(pendantWidth),
       earring_length: numOrNull(earringLength),
       earring_width: numOrNull(earringWidth),
+      ring_band_width: numOrNull(ringBandWidth),
       watch_maker: strOrNull(watchMaker),
       watch_movement: strOrNull(watchMovement),
       watch_dial_size: numOrNull(watchDialSize),
+      watch_case_material: strOrNull(watchCaseMaterial),
+      watch_band_material: strOrNull(watchBandMaterial),
+      watch_reference: strOrNull(watchReference),
     }
 
     const { error } = await onSave(data)
@@ -201,38 +209,46 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className={inputCls} placeholder="Brief description..." />
           </div>
 
-          {/* Metal info */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelCls}>Metal</label>
-              <select value={metalType} onChange={e => setMetalType(e.target.value as JewelryPiece['metal_type'])} className={inputCls}>
-                {metalOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+          {/* Metal info — hidden for watches (they have their own material fields) */}
+          {category !== 'watch' && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Metal</label>
+                <select value={metalType} onChange={e => setMetalType(e.target.value as JewelryPiece['metal_type'])} className={inputCls}>
+                  {metalOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Weight (g)</label>
+                <input type="number" step="0.01" min="0" value={weightGrams} onChange={e => setWeightGrams(e.target.value)} className={inputCls} placeholder="31.1" />
+              </div>
+              <div>
+                <label className={labelCls}>{['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? 'Karat' : 'Purity'}</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '24' : undefined}
+                  value={karat}
+                  onChange={e => setKarat(e.target.value)}
+                  className={inputCls}
+                  placeholder={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '14' : metalType === 'silver' ? '925' : '950'}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Weight (g)</label>
-              <input type="number" step="0.01" min="0" value={weightGrams} onChange={e => setWeightGrams(e.target.value)} className={inputCls} placeholder="31.1" />
-            </div>
-            <div>
-              <label className={labelCls}>{['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? 'Karat' : 'Purity'}</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '24' : undefined}
-                value={karat}
-                onChange={e => setKarat(e.target.value)}
-                className={inputCls}
-                placeholder={['yellow_gold', 'white_gold', 'rose_gold', 'gold'].includes(metalType) ? '14' : metalType === 'silver' ? '925' : '950'}
-              />
-            </div>
-          </div>
+          )}
 
           {/* Category-specific fields */}
           {category === 'ring' && (
-            <div>
-              <label className={labelCls}>Ring Size</label>
-              <input value={ringSize} onChange={e => setRingSize(e.target.value)} className={inputCls} placeholder="e.g. 7, 7.5" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Ring Size</label>
+                <input value={ringSize} onChange={e => setRingSize(e.target.value)} className={inputCls} placeholder="e.g. 7, 7.5" />
+              </div>
+              <div>
+                <label className={labelCls}>Band Width (mm)</label>
+                <input type="number" step="0.1" min="0" value={ringBandWidth} onChange={e => setRingBandWidth(e.target.value)} className={inputCls} placeholder="2.5" />
+              </div>
             </div>
           )}
 
@@ -340,20 +356,70 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, col
 
           {category === 'watch' && (
             <div className="space-y-3">
-              <div>
-                <label className={labelCls}>Maker</label>
-                <input value={watchMaker} onChange={e => setWatchMaker(e.target.value)} className={inputCls} placeholder="Rolex, Omega, Seiko..." />
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className={labelCls}>Maker</label>
+                  <input value={watchMaker} onChange={e => setWatchMaker(e.target.value)} className={inputCls} placeholder="Rolex, Omega, Seiko..." />
+                </div>
+                <div>
+                  <label className={labelCls}>Reference / Model</label>
+                  <input value={watchReference} onChange={e => setWatchReference(e.target.value)} className={inputCls} placeholder="126710BLNR" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
                   <label className={labelCls}>Movement</label>
-                  <input value={watchMovement} onChange={e => setWatchMovement(e.target.value)} className={inputCls} placeholder="Automatic, Quartz..." />
+                  <select value={watchMovement} onChange={e => setWatchMovement(e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="Automatic">Automatic</option>
+                    <option value="Manual">Manual Wind</option>
+                    <option value="Quartz">Quartz</option>
+                    <option value="Solar">Solar</option>
+                    <option value="Spring Drive">Spring Drive</option>
+                    <option value="Kinetic">Kinetic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Case Material</label>
+                  <select value={watchCaseMaterial} onChange={e => setWatchCaseMaterial(e.target.value)} className={inputCls}>
+                    <option value="">Select...</option>
+                    <option value="Stainless Steel">Stainless Steel</option>
+                    <option value="Titanium">Titanium</option>
+                    <option value="Ceramic">Ceramic</option>
+                    <option value="Carbon Fiber">Carbon Fiber</option>
+                    <option value="Yellow Gold">Yellow Gold</option>
+                    <option value="White Gold">White Gold</option>
+                    <option value="Rose Gold">Rose Gold</option>
+                    <option value="Platinum">Platinum</option>
+                    <option value="Two-Tone">Two-Tone</option>
+                    <option value="Bronze">Bronze</option>
+                    <option value="Resin">Resin</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className={labelCls}>Dial Size (mm)</label>
                   <input type="number" step="0.1" value={watchDialSize} onChange={e => setWatchDialSize(e.target.value)} className={inputCls} placeholder="40" />
                 </div>
               </div>
+              <div>
+                <label className={labelCls}>Band Material</label>
+                <select value={watchBandMaterial} onChange={e => setWatchBandMaterial(e.target.value)} className={inputCls}>
+                  <option value="">Select...</option>
+                  <option value="Stainless Steel">Stainless Steel</option>
+                  <option value="Leather">Leather</option>
+                  <option value="Rubber">Rubber</option>
+                  <option value="NATO / Canvas">NATO / Canvas</option>
+                  <option value="Titanium">Titanium</option>
+                  <option value="Yellow Gold">Yellow Gold</option>
+                  <option value="White Gold">White Gold</option>
+                  <option value="Rose Gold">Rose Gold</option>
+                  <option value="Two-Tone">Two-Tone</option>
+                  <option value="Ceramic">Ceramic</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <p className="text-xs text-neutral-500">Watches use Appraised Value for portfolio tracking since melt value rarely applies.</p>
             </div>
           )}
 
