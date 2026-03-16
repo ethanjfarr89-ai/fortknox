@@ -53,7 +53,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showSharePicker, setShowSharePicker] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight'>('name')
+  const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date'>('name')
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('trove_privacy') === 'true')
   const [cardPrefs, setCardPrefs] = useState<CardDisplayPrefs>(() => {
     try { return JSON.parse(localStorage.getItem('trove_card_prefs') ?? '') }
@@ -123,12 +123,44 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     activePieces = activePieces.filter(p => p.category === selectedCategory)
   }
 
-  const filtered = activePieces.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.metal_type.toLowerCase().includes(search.toLowerCase()) ||
-    p.category.toLowerCase().includes(search.toLowerCase()) ||
-    (p.gemstones?.some(g => g.stone_type.toLowerCase().includes(search.toLowerCase())) ?? false)
-  )
+  const metalDisplayLabels: Record<string, string> = {
+    gold: 'yellow gold', yellow_gold: 'yellow gold', white_gold: 'white gold', rose_gold: 'rose gold',
+    silver: 'silver', platinum: 'platinum', palladium: 'palladium', other: 'other',
+  }
+
+  const filtered = activePieces.filter(p => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    const categoryLabel = CATEGORIES.find(c => c.value === p.category)?.label ?? ''
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (metalDisplayLabels[p.metal_type] ?? p.metal_type).includes(q) ||
+      categoryLabel.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      (p.description?.toLowerCase().includes(q) ?? false) ||
+      (p.metal_karat && `${p.metal_karat}k`.includes(q)) ||
+      (p.watch_maker?.toLowerCase().includes(q) ?? false) ||
+      (p.watch_reference?.toLowerCase().includes(q) ?? false) ||
+      (p.watch_case_material?.toLowerCase().includes(q) ?? false) ||
+      (p.watch_band_material?.toLowerCase().includes(q) ?? false) ||
+      (p.gifted_by?.toLowerCase().includes(q) ?? false) ||
+      (p.inherited_from?.toLowerCase().includes(q) ?? false) ||
+      (p.history?.toLowerCase().includes(q) ?? false) ||
+      (p.significance?.toLowerCase().includes(q) ?? false) ||
+      (p.gemstones?.some(g =>
+        g.stone_type.toLowerCase().includes(q) ||
+        g.cut.toLowerCase().includes(q) ||
+        g.color.toLowerCase().includes(q) ||
+        g.clarity.toLowerCase().includes(q)
+      ) ?? false)
+    )
+  })
+
+  const getAcquiredDate = (p: JewelryPiece): string => {
+    if (p.acquisition_type === 'purchased' && p.date_purchased) return p.date_purchased
+    if (p.date_received) return p.date_received
+    return p.created_at?.split('T')[0] ?? ''
+  }
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
@@ -143,6 +175,9 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         ? b.appraised_value
         : calculateMeltValue(b.metal_type, b.metal_weight_grams, b.metal_karat, prices) ?? 0
       return valB - valA
+    }
+    if (sortBy === 'date') {
+      return getAcquiredDate(b).localeCompare(getAcquiredDate(a))
     }
     return a.name.localeCompare(b.name)
   })
@@ -318,12 +353,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               <ArrowUpDown className="w-3.5 h-3.5 text-neutral-500" />
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as 'name' | 'value' | 'weight')}
+                onChange={e => setSortBy(e.target.value as 'name' | 'value' | 'weight' | 'date')}
                 className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-gold-400"
               >
                 <option value="name">Name</option>
                 <option value="value">Value</option>
                 <option value="weight">Weight</option>
+                <option value="date">Date Acquired</option>
               </select>
               <div className="relative" ref={cardSettingsRef}>
                 <button
