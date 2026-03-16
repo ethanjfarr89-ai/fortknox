@@ -213,17 +213,18 @@ export function isGoldType(metalType: string): boolean {
 export function metalBadgeClasses(metalType: string): string {
   switch (metalType) {
     case 'rose_gold':
-      return 'bg-rose-900/25 text-rose-300'
+      return 'bg-amber-900/20 text-amber-300'
     case 'white_gold':
-      return 'bg-zinc-700/40 text-zinc-300'
+      return 'bg-sky-900/20 text-sky-300'
     case 'gold':
     case 'yellow_gold':
       return 'bg-gold-400/15 text-gold-400'
     case 'silver':
       return 'bg-violet-900/20 text-violet-300'
     case 'platinum':
-    case 'palladium':
       return 'bg-blue-900/30 text-blue-400'
+    case 'palladium':
+      return 'bg-teal-900/25 text-teal-300'
     default:
       return 'bg-neutral-800 text-neutral-300'
   }
