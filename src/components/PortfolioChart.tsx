@@ -103,16 +103,18 @@ export default function PortfolioChart({ pieces, prices, valuationMode }: Props)
         }
       }
 
-      // Always include today with current live prices
-      const lastDate = timeline.length > 0 ? timeline[timeline.length - 1].date : null
-      if (lastDate !== today) {
-        let todayValue = 0
-        for (const { piece, acquiredDate } of piecesWithDates) {
-          if (acquiredDate <= today) {
-            todayValue += getPieceValue(piece, prices, valuationMode)
-          }
+      // Always use current live prices for today's data point
+      let todayValue = 0
+      for (const { piece, acquiredDate } of piecesWithDates) {
+        if (acquiredDate <= today) {
+          todayValue += getPieceValue(piece, prices, valuationMode)
         }
-        if (todayValue > 0) {
+      }
+      if (todayValue > 0) {
+        // Replace the last point if it's today (historical close), or append
+        if (timeline.length > 0 && timeline[timeline.length - 1].date === today) {
+          timeline[timeline.length - 1].value = todayValue
+        } else {
           timeline.push({ date: today, value: todayValue })
         }
       }
