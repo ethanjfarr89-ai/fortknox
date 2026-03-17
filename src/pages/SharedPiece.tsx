@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Gem, Weight, Sparkles, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CATEGORIES } from '../types'
@@ -70,32 +70,56 @@ function isGoldType(t: string) {
 }
 
 function fmtCurrency(val: number | null) {
-  if (val == null) return '—'
+  if (val == null) return '\u2014'
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
 }
 
 function FullscreenGallery({ photos, initialIndex, onClose }: { photos: string[]; initialIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(initialIndex)
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
 
   useEffect(() => {
+    document.body.style.overflow = 'hidden'
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowLeft') setIndex(i => (i - 1 + photos.length) % photos.length)
       if (e.key === 'ArrowRight') setIndex(i => (i + 1) % photos.length)
     }
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', handler) }
   }, [photos.length, onClose])
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx < 0) setIndex(i => (i + 1) % photos.length)
+      else setIndex(i => (i - 1 + photos.length) % photos.length)
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
   return (
-    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+      onClick={onClose}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/60 hover:text-white z-10">
         <X className="w-6 h-6" />
       </button>
       <img
         src={photos[index]}
         alt=""
-        className="max-w-full max-h-full object-contain"
+        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
         onClick={e => e.stopPropagation()}
       />
       {photos.length > 1 && (
@@ -132,6 +156,12 @@ export default function SharedPiece({ token }: { token: string }) {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
+  const [stylingLightbox, setStylingLightbox] = useState<number | null>(null)
+
+  // Touch swipe for hero photo
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+  const [heroIndex, setHeroIndex] = useState<number | null>(null)
 
   useEffect(() => {
     supabase.rpc('get_shared_piece', { token })
@@ -157,7 +187,7 @@ export default function SharedPiece({ token }: { token: string }) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
         <div className="text-center space-y-3">
-          <Gem className="w-12 h-12 text-neutral-700 mx-auto" />
+          <img src="/logo.jpg" alt="Trove" className="h-12 mx-auto rounded" />
           <h1 className="text-xl font-bold text-white">Piece Not Found</h1>
           <p className="text-neutral-500 text-sm">This share link may have been revoked or doesn't exist.</p>
           <a href="/" className="inline-block mt-4 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm">
@@ -170,7 +200,27 @@ export default function SharedPiece({ token }: { token: string }) {
 
   const { piece, owner, share } = data
   const categoryLabel = CATEGORIES.find(c => c.value === piece.category)?.label
-  const profilePhoto = piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0]
+  const photos = piece.photo_urls ?? []
+  const currentHeroIndex = heroIndex ?? (piece.profile_photo_index ?? 0)
+  const currentPhoto = photos[currentHeroIndex] ?? photos[0]
+  const currentCrop = piece.photo_crops?.[String(currentHeroIndex)]
+    ?? (currentHeroIndex === (piece.profile_photo_index ?? 0) ? piece.profile_photo_crop : null)
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null || photos.length <= 1) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx < 0) setHeroIndex(i => ((i ?? piece.profile_photo_index ?? 0) + 1) % photos.length)
+      else setHeroIndex(i => ((i ?? piece.profile_photo_index ?? 0) - 1 + photos.length) % photos.length)
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+  }
 
   const dimInfo: string[] = []
   if (piece.category === 'ring') {
@@ -212,11 +262,8 @@ export default function SharedPiece({ token }: { token: string }) {
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
       <header className="border-b border-neutral-800 bg-neutral-900/80 backdrop-blur-sm sticky top-0 z-30">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Gem className="w-5 h-5 text-gold-400" />
-            <span className="text-sm font-semibold text-white tracking-wide">Trove</span>
-          </div>
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between">
+          <a href="/"><img src="/logo.jpg" alt="Trove" className="h-10 rounded" /></a>
           {owner.display_name && (
             <span className="text-xs text-neutral-500">
               Shared by {owner.display_name}
@@ -226,18 +273,46 @@ export default function SharedPiece({ token }: { token: string }) {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Hero photo */}
-        {profilePhoto ? (
+        {/* Hero photo — swipeable */}
+        {currentPhoto ? (
           <div
-            className="aspect-[4/3] overflow-hidden rounded-2xl bg-neutral-800 cursor-pointer"
-            onClick={() => setGalleryIndex(piece.profile_photo_index ?? 0)}
+            className="aspect-[4/3] overflow-hidden rounded-2xl bg-neutral-800 cursor-pointer relative"
+            onClick={() => setGalleryIndex(currentHeroIndex)}
+            onTouchStart={handleHeroTouchStart}
+            onTouchEnd={handleHeroTouchEnd}
           >
             <CroppedImage
-              src={profilePhoto}
+              src={currentPhoto}
               alt={piece.name}
-              crop={piece.profile_photo_crop}
+              crop={currentCrop}
               className="w-full h-full object-cover"
             />
+            {/* Navigation arrows */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); setHeroIndex(i => ((i ?? piece.profile_photo_index ?? 0) - 1 + photos.length) % photos.length) }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/60 rounded-full text-white/80 hover:text-white"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setHeroIndex(i => ((i ?? piece.profile_photo_index ?? 0) + 1) % photos.length) }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/60 rounded-full text-white/80 hover:text-white"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {photos.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={e => { e.stopPropagation(); setHeroIndex(i) }}
+                      className={`w-2 h-2 rounded-full transition ${i === currentHeroIndex ? 'bg-white' : 'bg-white/40'}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="aspect-[4/3] bg-neutral-800 rounded-2xl flex items-center justify-center">
@@ -246,15 +321,17 @@ export default function SharedPiece({ token }: { token: string }) {
         )}
 
         {/* Photo thumbnails */}
-        {piece.photo_urls?.length > 1 && (
+        {photos.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {piece.photo_urls.map((url, i) => (
+            {photos.map((url, i) => (
               <img
                 key={i}
                 src={url}
                 alt=""
-                className="w-16 h-16 rounded-lg object-cover border-2 border-neutral-700 shrink-0 cursor-pointer hover:border-gold-400 transition"
-                onClick={() => setGalleryIndex(i)}
+                className={`w-16 h-16 rounded-lg object-cover border-2 shrink-0 cursor-pointer hover:border-gold-400 transition ${
+                  i === currentHeroIndex ? 'border-gold-400' : 'border-neutral-700'
+                }`}
+                onClick={() => setHeroIndex(i)}
               />
             ))}
           </div>
@@ -285,7 +362,7 @@ export default function SharedPiece({ token }: { token: string }) {
           </div>
 
           {dimInfo.length > 0 && (
-            <div className="text-sm text-neutral-400">{dimInfo.join(' · ')}</div>
+            <div className="text-sm text-neutral-400">{dimInfo.join(' \u00b7 ')}</div>
           )}
 
           {/* Value (only if owner opted in) */}
@@ -309,7 +386,7 @@ export default function SharedPiece({ token }: { token: string }) {
                       <span>
                         {gem.is_pave && gem.quantity ? `${gem.quantity}x ` : ''}
                         {gem.stone_type}
-                        {gem.carat_weight ? ` — ${gem.carat_weight}ct${gem.is_pave ? 'w' : ''}` : ''}
+                        {gem.carat_weight ? ` \u2014 ${gem.carat_weight}ct${gem.is_pave ? 'w' : ''}` : ''}
                       </span>
                       {gem.is_pave && <span className="text-xs px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-400">Pave</span>}
                       {gem.origin === 'lab' && <span className="text-xs px-1.5 py-0.5 bg-blue-900/30 rounded text-blue-400">Lab</span>}
@@ -317,7 +394,7 @@ export default function SharedPiece({ token }: { token: string }) {
                     </div>
                     {!gem.is_pave && (
                       <div className="text-xs text-neutral-400 mt-0.5">
-                        {[gem.cut, gem.color && `Color: ${gem.color}`, gem.clarity && `Clarity: ${gem.clarity}`].filter(Boolean).join(' · ')}
+                        {[gem.cut, gem.color && `Color: ${gem.color}`, gem.clarity && `Clarity: ${gem.clarity}`].filter(Boolean).join(' \u00b7 ')}
                       </div>
                     )}
                   </div>
@@ -340,13 +417,19 @@ export default function SharedPiece({ token }: { token: string }) {
             </div>
           )}
 
-          {/* Styling photos */}
+          {/* Styling photos — clickable to expand */}
           {piece.styling_photo_urls?.length > 0 && (
             <div>
               <div className="text-sm font-medium text-gold-400 mb-2">Styling</div>
               <div className="flex gap-2 overflow-x-auto">
                 {piece.styling_photo_urls.map((url, i) => (
-                  <img key={i} src={url} alt="Styling" className="w-20 h-20 rounded-lg object-cover border border-neutral-700 shrink-0" />
+                  <img
+                    key={i}
+                    src={url}
+                    alt="Styling"
+                    className="w-20 h-20 rounded-lg object-cover border border-neutral-700 shrink-0 cursor-pointer hover:border-gold-400 transition"
+                    onClick={() => setStylingLightbox(i)}
+                  />
                 ))}
               </div>
             </div>
@@ -355,7 +438,7 @@ export default function SharedPiece({ token }: { token: string }) {
 
         {/* CTA */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center space-y-3 mt-8">
-          <Gem className="w-8 h-8 text-gold-400 mx-auto" />
+          <img src="/logo.jpg" alt="Trove" className="h-10 mx-auto rounded" />
           <h2 className="text-lg font-semibold text-white">Track Your Collection with Trove</h2>
           <p className="text-sm text-neutral-400 max-w-sm mx-auto">
             Catalog your jewelry, track real-time values, and share pieces with friends and family.
@@ -364,17 +447,26 @@ export default function SharedPiece({ token }: { token: string }) {
             href="/"
             className="inline-block px-6 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
           >
-            Get Started — It's Free
+            Get Started
           </a>
         </div>
       </main>
 
-      {/* Fullscreen gallery */}
-      {galleryIndex !== null && piece.photo_urls?.length > 0 && (
+      {/* Fullscreen gallery for main photos */}
+      {galleryIndex !== null && photos.length > 0 && (
         <FullscreenGallery
-          photos={piece.photo_urls}
+          photos={photos}
           initialIndex={galleryIndex}
           onClose={() => setGalleryIndex(null)}
+        />
+      )}
+
+      {/* Fullscreen gallery for styling photos */}
+      {stylingLightbox !== null && piece.styling_photo_urls?.length > 0 && (
+        <FullscreenGallery
+          photos={piece.styling_photo_urls}
+          initialIndex={stylingLightbox}
+          onClose={() => setStylingLightbox(null)}
         />
       )}
     </div>

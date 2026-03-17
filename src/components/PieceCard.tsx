@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff, Heart } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
@@ -14,6 +14,7 @@ interface Props {
   privacyMode?: boolean
   onTogglePrivacy?: () => void
   cardPrefs?: CardDisplayPrefs
+  onToggleFavorite?: (id: string) => void
 }
 
 function fmtCurrency(val: number | null) {
@@ -32,7 +33,7 @@ function karatLabel(piece: JewelryPiece) {
   return ''
 }
 
-export default function PieceCard({ piece, prices, valuationMode, onEdit, onDelete, privacyMode, onTogglePrivacy, cardPrefs }: Props) {
+export default function PieceCard({ piece, prices, valuationMode, onEdit, onDelete, privacyMode, onTogglePrivacy, cardPrefs, onToggleFavorite }: Props) {
   const prefs = cardPrefs ?? DEFAULT_CARD_PREFS
   const [photoIndex, setPhotoIndex] = useState(piece.profile_photo_index ?? 0)
 
@@ -90,7 +91,7 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   const handleTouchEnd = () => { touchStart.current = null }
 
   return (
-    <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group ${
+    <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group flex flex-col ${
       piece.is_wishlist ? 'border-neutral-700 border-dashed' : 'border-neutral-800'
     }`}>
       {/* Photo */}
@@ -152,10 +153,21 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
           {piece.acquisition_type === 'inheritance' && (
             <span className="p-1 bg-black/80 rounded"><Crown className="w-3 h-3 text-purple-400" /></span>
           )}
+          {piece.is_favorite && (
+            <span className="p-1 bg-black/80 rounded"><Heart className="w-3 h-3 text-red-400 fill-red-400" /></span>
+          )}
         </div>
 
         {/* Actions overlay */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(piece.id) }}
+              className="p-1.5 bg-black/80 rounded-lg hover:bg-black shadow-sm"
+            >
+              <Heart className={`w-3.5 h-3.5 ${piece.is_favorite ? 'text-red-400 fill-red-400' : 'text-neutral-400'}`} />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(piece) }}
             className="p-1.5 bg-black/80 rounded-lg hover:bg-black shadow-sm"
@@ -171,8 +183,8 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         </div>
       </div>
 
-      {/* Info */}
-      <div className="p-4">
+      {/* Info — fixed height for uniform cards */}
+      <div className="p-4 h-[140px] flex flex-col overflow-hidden">
         <h3 className="font-semibold text-white truncate">{piece.name}</h3>
 
         {showInfoRow && (
@@ -197,7 +209,7 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         )}
 
         {prefs.value && (
-          <div className="mt-3 pt-3 border-t border-neutral-800">
+          <div className="mt-auto pt-3 border-t border-neutral-800">
             <div className="flex items-baseline justify-between">
               <span className="text-lg font-bold text-gold-400">
                 {privacyMode ? '••••' : fmtCurrency(displayValue)}

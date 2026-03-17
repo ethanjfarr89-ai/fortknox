@@ -61,7 +61,17 @@ export function usePieces(userId: string | undefined) {
     return { error }
   }
 
-  return { pieces, loading, addPiece, updatePiece, deletePiece, refetch: fetchPieces }
+  const toggleFavorite = async (id: string) => {
+    const piece = pieces.find(p => p.id === id)
+    if (!piece) return
+    const next = !piece.is_favorite
+    const { error } = await supabase.from('pieces').update({ is_favorite: next }).eq('id', id)
+    if (!error) {
+      setPieces(prev => prev.map(p => p.id === id ? { ...p, is_favorite: next } : p))
+    }
+  }
+
+  return { pieces, loading, addPiece, updatePiece, deletePiece, toggleFavorite, refetch: fetchPieces }
 }
 
 // Normalize DB rows to ensure all new fields have defaults
@@ -70,6 +80,7 @@ function normalizePiece(row: Record<string, unknown>): JewelryPiece {
     ...row,
     category: row.category ?? 'bits',
     is_wishlist: row.is_wishlist ?? false,
+    is_favorite: row.is_favorite ?? false,
     gemstones: row.gemstones ?? [],
     styling_photo_urls: row.styling_photo_urls ?? [],
     hallmark_photo_urls: row.hallmark_photo_urls ?? [],

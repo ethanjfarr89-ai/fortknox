@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List, ChevronDown } from 'lucide-react'
+import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List, ChevronDown, Heart } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import type { SummaryDisplayPrefs } from '../components/PortfolioSummary'
@@ -41,7 +41,7 @@ interface Props {
 type Tab = 'portfolio' | 'wishlist' | 'styling'
 
 export default function Dashboard({ userId, onSignOut }: Props) {
-  const { pieces, loading, addPiece, updatePiece, deletePiece } = usePieces(userId)
+  const { pieces, loading, addPiece, updatePiece, deletePiece, toggleFavorite } = usePieces(userId)
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
   const { snapshots, saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
@@ -77,6 +77,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [viewingFriend, setViewingFriend] = useState<Friendship | null>(null)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [showFavorites, setShowFavorites] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'weight' | 'date' | 'gain_pct' | 'gain_amt'>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem('trove_privacy') === 'true')
@@ -198,6 +199,11 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   // Filter by category
   if (selectedCategory) {
     activePieces = activePieces.filter(p => p.category === selectedCategory)
+  }
+
+  // Filter by favorites
+  if (showFavorites) {
+    activePieces = activePieces.filter(p => p.is_favorite)
   }
 
   const metalDisplayLabels: Record<string, string> = {
@@ -568,6 +574,16 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
+                onClick={() => setShowFavorites(prev => !prev)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                  showFavorites ? 'bg-red-900/30 text-red-400' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                <Heart className={`w-3 h-3 ${showFavorites ? 'fill-red-400' : ''}`} />
+                Favorites
+              </button>
+              <div className="w-px h-4 bg-neutral-700" />
+              <button
                 onClick={() => setSelectedCategory(null)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                   !selectedCategory ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
@@ -799,6 +815,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       privacyMode={privacyMode}
                       onTogglePrivacy={togglePrivacy}
                       cardPrefs={cardPrefs}
+                      onToggleFavorite={toggleFavorite}
                     />
                   </div>
                 ))}
@@ -887,6 +904,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onCreateShare={createShare}
           onDeleteShare={deleteShare}
           onUpdateShareValue={updateShowValue}
+          onToggleFavorite={toggleFavorite}
         />
       )}
 

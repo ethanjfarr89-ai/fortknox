@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy, Share2, Link2, Check, Trash2 } from 'lucide-react'
+import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy, Share2, Link2, Check, Trash2, Heart } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import type { PieceShare } from '../lib/usePieceShares'
 import { CATEGORIES } from '../types'
@@ -20,6 +20,7 @@ interface Props {
   onCreateShare?: (pieceId: string, showValue: boolean) => Promise<PieceShare | null>
   onDeleteShare?: (pieceId: string) => Promise<void>
   onUpdateShareValue?: (pieceId: string, showValue: boolean) => Promise<void>
+  onToggleFavorite?: (id: string) => void
 }
 
 function fmtCurrency(val: number | null) {
@@ -59,7 +60,7 @@ function PhotoGallery({ label, icon, photos }: { label: string; icon: React.Reac
   )
 }
 
-export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections, pieceShare, onCreateShare, onDeleteShare, onUpdateShareValue }: Props) {
+export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections, pieceShare, onCreateShare, onDeleteShare, onUpdateShareValue, onToggleFavorite }: Props) {
   useScrollLock()
   const [mainLightbox, setMainLightbox] = useState<number | null>(null)
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
@@ -203,9 +204,19 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 overflow-y-auto py-8 px-4">
       <div className="bg-neutral-900 rounded-2xl shadow-xl w-full max-w-lg relative border border-neutral-800">
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-1.5 bg-black/80 rounded-lg hover:bg-black shadow-sm">
-          <X className="w-5 h-5 text-neutral-400" />
-        </button>
+        <div className="absolute top-4 right-4 z-10 flex gap-1.5">
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(piece.id)}
+              className="p-1.5 bg-black/80 rounded-lg hover:bg-black shadow-sm"
+            >
+              <Heart className={`w-5 h-5 ${piece.is_favorite ? 'text-red-400 fill-red-400' : 'text-neutral-400'}`} />
+            </button>
+          )}
+          <button onClick={onClose} className="p-1.5 bg-black/80 rounded-lg hover:bg-black shadow-sm">
+            <X className="w-5 h-5 text-neutral-400" />
+          </button>
+        </div>
 
         {/* Main photo */}
         {profilePhoto ? (

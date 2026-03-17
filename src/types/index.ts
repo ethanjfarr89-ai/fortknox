@@ -56,6 +56,7 @@ export interface JewelryPiece {
   inherited_from: string | null
   date_received: string | null
   is_wishlist: boolean
+  is_favorite: boolean
   photo_urls: string[]
   styling_photo_urls: string[]
   hallmark_photo_urls: string[]
@@ -87,7 +88,7 @@ export interface JewelryPiece {
   updated_at: string
 }
 
-export type JewelryPieceInsert = Omit<JewelryPiece, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+export type JewelryPieceInsert = Omit<JewelryPiece, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'is_favorite'>
 
 export interface SpotPrices {
   gold: number | null
