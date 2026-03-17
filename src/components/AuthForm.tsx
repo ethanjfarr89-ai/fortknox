@@ -52,7 +52,7 @@ export default function AuthForm({ onSignIn, onSignUp }: Props) {
     <div className="min-h-screen flex items-center justify-center bg-black px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.jpg" alt="Trove" className="w-32 h-32 mx-auto rounded-xl mb-4" />
+          <img src="/logo.png" alt="Trove" className="w-32 h-32 mx-auto rounded-xl mb-4" />
           <p className="text-neutral-500 mt-1">Know what you own</p>
         </div>
 

@@ -116,7 +116,7 @@ export default function Header({ profile, userId, friends, pending, notification
   return (
     <header className="bg-black border-b border-neutral-800 sticky top-0 z-30">
       <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-        <a href="/" className="shrink-0"><img src="/logo.jpg" alt="Trove" className="h-18 rounded" /></a>
+        <a href="/" className="shrink-0"><img src="/logo.png" alt="Trove" className="h-18 rounded" /></a>
         <div className="flex items-center gap-2">
           {/* Friends dropdown */}
           <div className="relative" ref={friendsRef}>

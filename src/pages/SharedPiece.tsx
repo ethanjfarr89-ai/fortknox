@@ -187,7 +187,7 @@ export default function SharedPiece({ token }: { token: string }) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
         <div className="text-center space-y-3">
-          <img src="/logo.jpg" alt="Trove" className="h-12 mx-auto rounded" />
+          <img src="/logo.png" alt="Trove" className="h-12 mx-auto rounded" />
           <h1 className="text-xl font-bold text-white">Piece Not Found</h1>
           <p className="text-neutral-500 text-sm">This share link may have been revoked or doesn't exist.</p>
           <a href="/" className="inline-block mt-4 px-5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm">
@@ -263,7 +263,7 @@ export default function SharedPiece({ token }: { token: string }) {
       {/* Header */}
       <header className="border-b border-neutral-800 bg-neutral-900/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between">
-          <a href="/"><img src="/logo.jpg" alt="Trove" className="h-10 rounded" /></a>
+          <a href="/"><img src="/logo.png" alt="Trove" className="h-10 rounded" /></a>
           {owner.display_name && (
             <span className="text-xs text-neutral-500">
               Shared by {owner.display_name}
@@ -438,7 +438,7 @@ export default function SharedPiece({ token }: { token: string }) {
 
         {/* CTA */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center space-y-3 mt-8">
-          <img src="/logo.jpg" alt="Trove" className="h-10 mx-auto rounded" />
+          <img src="/logo.png" alt="Trove" className="h-10 mx-auto rounded" />
           <h2 className="text-lg font-semibold text-white">Track Your Collection with Trove</h2>
           <p className="text-sm text-neutral-400 max-w-sm mx-auto">
             Catalog your jewelry, track real-time values, and share pieces with friends and family.
