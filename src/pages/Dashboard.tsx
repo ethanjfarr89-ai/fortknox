@@ -31,6 +31,7 @@ import CollectionSharePicker from '../components/CollectionSharePicker'
 import ExportReport from '../components/ExportReport'
 import Onboarding from '../components/Onboarding'
 import PieceTimeline from '../components/PieceTimeline'
+import { usePieceShares } from '../lib/usePieceShares'
 
 interface Props {
   userId: string
@@ -47,6 +48,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { collections, pieceCollectionMap, shares, addCollection, renameCollection, deleteCollection, assignPiece, unassignPiece, shareCollection, unshareCollection, updateSharePrefs } = useCollections(userId)
   const { boards, addBoard, updateBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
+  const { createShare, deleteShare, updateShowValue, getShareForPiece } = usePieceShares(userId)
   // Compute current total for price alerts
   const currentTotalValue = useMemo(() => {
     let total = 0
@@ -719,6 +721,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               )}
             </div>
 
+            {!loading && sorted.length > 0 && (
+              <p className="text-xs text-neutral-500 font-medium">{sorted.length} Piece{sorted.length !== 1 ? 's' : ''}</p>
+            )}
+
             {loading ? (
               <div className="text-center py-16 text-neutral-500">Loading...</div>
             ) : viewMode === 'timeline' ? (
@@ -877,6 +883,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onDuplicate={handleDuplicate}
           pieceCollections={pieceCollectionMap[viewingPiece.id]}
           collections={collections}
+          pieceShare={getShareForPiece(viewingPiece.id)}
+          onCreateShare={createShare}
+          onDeleteShare={deleteShare}
+          onUpdateShareValue={updateShowValue}
         />
       )}
 

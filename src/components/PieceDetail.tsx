@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy } from 'lucide-react'
+import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy, Share2, Link2, Check, Trash2 } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
+import type { PieceShare } from '../lib/usePieceShares'
 import { CATEGORIES } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
 import { useScrollLock } from '../lib/useScrollLock'
@@ -15,6 +16,10 @@ interface Props {
   onDuplicate?: (piece: JewelryPiece) => void
   pieceCollections?: string[]
   collections?: Collection[]
+  pieceShare?: PieceShare | null
+  onCreateShare?: (pieceId: string, showValue: boolean) => Promise<PieceShare | null>
+  onDeleteShare?: (pieceId: string) => Promise<void>
+  onUpdateShareValue?: (pieceId: string, showValue: boolean) => Promise<void>
 }
 
 function fmtCurrency(val: number | null) {
@@ -54,7 +59,7 @@ function PhotoGallery({ label, icon, photos }: { label: string; icon: React.Reac
   )
 }
 
-export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections }: Props) {
+export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections, pieceShare, onCreateShare, onDeleteShare, onUpdateShareValue }: Props) {
   useScrollLock()
   const [mainLightbox, setMainLightbox] = useState<number | null>(null)
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
@@ -106,6 +111,84 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
   }
 
   const assignedCollections = collections?.filter(c => pieceCollections?.includes(c.id)) ?? []
+
+  const [shareLoading, setShareLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function ShareSection({ piece: p, pieceShare: ps, onCreateShare: onCreate, onDeleteShare: onDelete, onUpdateShareValue: onUpdateVal }: {
+    piece: JewelryPiece
+    pieceShare: PieceShare | null
+    onCreateShare: (pieceId: string, showValue: boolean) => Promise<PieceShare | null>
+    onDeleteShare: (pieceId: string) => Promise<void>
+    onUpdateShareValue: (pieceId: string, showValue: boolean) => Promise<void>
+  }) {
+    const shareUrl = ps ? `${window.location.origin}/share/${ps.share_token}` : null
+
+    const handleCreate = async () => {
+      setShareLoading(true)
+      await onCreate(p.id, false)
+      setShareLoading(false)
+    }
+
+    const handleCopy = async () => {
+      if (!shareUrl) return
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+
+    const handleRevoke = async () => {
+      setShareLoading(true)
+      await onDelete(p.id)
+      setShareLoading(false)
+    }
+
+    return (
+      <div className="px-5 pb-4">
+        {!ps ? (
+          <button
+            onClick={handleCreate}
+            disabled={shareLoading}
+            className="w-full flex items-center justify-center gap-2 py-2 border border-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-800 transition text-sm disabled:opacity-50"
+          >
+            <Share2 className="w-4 h-4" />
+            {shareLoading ? 'Creating...' : 'Share This Piece'}
+          </button>
+        ) : (
+          <div className="bg-neutral-800 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center gap-2 text-sm text-neutral-300">
+              <Link2 className="w-4 h-4 text-gold-400 shrink-0" />
+              <span className="truncate text-xs text-neutral-500">{shareUrl}</span>
+              <button
+                onClick={handleCopy}
+                className="shrink-0 px-2.5 py-1 bg-neutral-700 hover:bg-neutral-600 text-xs rounded-md transition flex items-center gap-1"
+              >
+                {copied ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : 'Copy'}
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ps.show_value}
+                  onChange={e => onUpdateVal(p.id, e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-700 text-gold-400 focus:ring-gold-400"
+                />
+                <span className="text-xs text-neutral-400">Show appraised value</span>
+              </label>
+              <button
+                onClick={handleRevoke}
+                disabled={shareLoading}
+                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition disabled:opacity-50"
+              >
+                <Trash2 className="w-3 h-3" /> Revoke
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   function RoiBadge({ roi }: { roi: number | null }) {
     if (roi === null) return null
@@ -184,7 +267,7 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
             </span>
             {piece.metal_weight_grams && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-neutral-800 text-neutral-300">
-                <Weight className="w-3.5 h-3.5" /> {piece.metal_weight_grams}g
+                <Weight className="w-3.5 h-3.5" /> {Math.round(piece.metal_weight_grams * 100) / 100}g
               </span>
             )}
           </div>
@@ -297,6 +380,17 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
           <PhotoGallery label="Hallmarks" icon={<Stamp className="w-4 h-4" />} photos={piece.hallmark_photo_urls ?? []} />
           <PhotoGallery label="Styling Examples" icon={<Shirt className="w-4 h-4" />} photos={piece.styling_photo_urls ?? []} />
         </div>
+
+        {/* Share section */}
+        {onCreateShare && (
+          <ShareSection
+            piece={piece}
+            pieceShare={pieceShare ?? null}
+            onCreateShare={onCreateShare}
+            onDeleteShare={onDeleteShare!}
+            onUpdateShareValue={onUpdateShareValue!}
+          />
+        )}
 
         <div className="p-5 border-t border-neutral-800 flex gap-3">
           {onDuplicate && (

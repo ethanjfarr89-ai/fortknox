@@ -16,13 +16,15 @@ export default function CroppedImage({ src, alt, crop, className = '' }: Props) 
     return <img src={src} alt={alt} className={className} />
   }
 
-  // Scale the image so the crop region fills the container
+  // Use uniform scale to avoid stretching — pick the larger scale so the
+  // crop region fully covers the container, then let overflow: hidden clip.
   const scaleX = 100 / crop.width
   const scaleY = 100 / crop.height
+  const scale = Math.max(scaleX, scaleY)
 
-  // Position the image so the crop region's top-left aligns with the container's top-left
-  const left = -(crop.x / crop.width) * 100
-  const top = -(crop.y / crop.height) * 100
+  // Position the image so the crop region is centered in the container
+  const left = -(crop.x * scale)
+  const top = -(crop.y * scale)
 
   return (
     <div className={className} style={{ position: 'relative', overflow: 'hidden' }}>
@@ -31,8 +33,8 @@ export default function CroppedImage({ src, alt, crop, className = '' }: Props) 
         alt={alt}
         style={{
           position: 'absolute',
-          width: `${scaleX * 100}%`,
-          height: `${scaleY * 100}%`,
+          width: `${scale * 100}%`,
+          height: 'auto',
           left: `${left}%`,
           top: `${top}%`,
           maxWidth: 'none',

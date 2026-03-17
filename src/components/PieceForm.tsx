@@ -99,7 +99,7 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, def
     setError(null)
     setSaving(true)
 
-    const numOrNull = (v: string) => v ? parseFloat(v) : null
+    const numOrNull = (v: string) => v ? Math.round(parseFloat(v) * 100) / 100 : null
     const strOrNull = (v: string) => v.trim() || null
 
     const data: JewelryPieceInsert = {
