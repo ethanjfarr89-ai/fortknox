@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List, ChevronDown } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import type { SummaryDisplayPrefs } from '../components/PortfolioSummary'
@@ -90,6 +90,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [showExport, setShowExport] = useState(false)
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid')
+  const [recentCollapsed, setRecentCollapsed] = useState(() => localStorage.getItem('trove_recent_collapsed') === 'true')
   const [bulkSelect, setBulkSelect] = useState(false)
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set())
   const cardSettingsRef = useRef<HTMLDivElement>(null)
@@ -427,11 +428,16 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             {/* Recently added */}
             {recentlyAdded.length > 0 && (
               <div className="bg-neutral-900 rounded-2xl p-4 border border-neutral-800">
-                <div className="flex items-center gap-2 mb-3">
+                <button
+                  onClick={() => setRecentCollapsed(prev => { const next = !prev; localStorage.setItem('trove_recent_collapsed', String(next)); return next })}
+                  className="w-full flex items-center gap-2"
+                >
                   <Clock className="w-4 h-4 text-gold-400" />
                   <h3 className="text-sm font-medium text-neutral-400">Recently Added</h3>
-                </div>
-                <div className="flex gap-3 overflow-x-auto">
+                  <span className="text-xs text-neutral-600 ml-1">{recentlyAdded.length}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-neutral-600 ml-auto transition-transform ${recentCollapsed ? '-rotate-90' : ''}`} />
+                </button>
+                {!recentCollapsed && <div className="flex gap-3 overflow-x-auto mt-3">
                   {recentlyAdded.map(piece => {
                     const photoUrl = piece.photo_urls?.[piece.profile_photo_index ?? 0] ?? piece.photo_urls?.[0]
                     return (
@@ -454,7 +460,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       </button>
                     )
                   })}
-                </div>
+                </div>}
               </div>
             )}
           </>
