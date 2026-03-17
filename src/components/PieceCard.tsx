@@ -177,15 +177,14 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         </div>
       </div>
 
-      {/* Info */}
-      <div className="p-3 flex flex-col">
+      {/* Info — flex-grow so CSS grid row height equalizes across cards */}
+      <div className="p-3 flex flex-col flex-1">
         {/* Title */}
         <h3 className="font-semibold text-white text-sm truncate">{piece.name}</h3>
 
-        {/* Details zone — capped height, overflow hidden so it never crowds value */}
-        <div className="h-[34px] overflow-hidden mt-1">
-          {/* Colored badge pills — single row, no wrap */}
-          <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
+        {/* Details */}
+        <div className="mt-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {prefs.metal && (
               <span className={`shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${metalBadgeClasses(piece.metal_type)}`}>
                 {metalLabelsShort[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
