@@ -21,7 +21,6 @@ import PieceForm from '../components/PieceForm'
 import PieceDetail from '../components/PieceDetail'
 import StylingBoards from '../components/StylingBoards'
 import ProfileSettings from '../components/ProfileSettings'
-import NotificationBanner from '../components/NotificationBanner'
 import FriendsPanel from '../components/FriendsPanel'
 import FriendProfile from '../components/FriendProfile'
 import CollectionManager from '../components/CollectionManager'
@@ -58,7 +57,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   }, [pieces, prices])
 
   const priceAlerts = usePriceAlerts(snapshots, currentTotalValue, prices)
-  const { notifications, dismiss: dismissNotif, dismissAll: dismissAllNotifs } = useNotifications(userId, pending, priceAlerts)
+  const { notifications, unreadCount, history: notifHistory, dismiss: dismissNotif, dismissAll: dismissAllNotifs, markAllRead } = useNotifications(userId, pending, priceAlerts)
 
   const [valuationMode, setValuationMode] = useState<ValuationMode>('melt')
   const [tab, setTab] = useState<Tab>('portfolio')
@@ -354,14 +353,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
       <Header
         profile={profile}
         pendingFriendCount={incomingRequests.length}
-        onSignOut={onSignOut}
-        onOpenProfile={() => setShowProfile(true)}
-        onOpenFriends={() => setShowFriends(true)}
-      />
-      <NotificationBanner
         notifications={notifications}
-        onDismiss={dismissNotif}
-        onDismissAll={dismissAllNotifs}
+        unreadCount={unreadCount}
+        history={notifHistory}
+        onDismissNotif={dismissNotif}
+        onDismissAllNotifs={dismissAllNotifs}
+        onMarkAllRead={markAllRead}
         onOpenFriends={() => setShowFriends(true)}
         onViewFriend={(n) => {
           if (!n.senderUserId) return
@@ -371,6 +368,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           })
           if (friend) setViewingFriend(friend)
         }}
+        onSignOut={onSignOut}
+        onOpenProfile={() => setShowProfile(true)}
       />
       <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
 
@@ -390,7 +389,6 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         <>
         {/* Onboarding for new users */}
         <Onboarding
-          pieceCount={pieces.length}
           onAddPiece={() => { setEditingPiece(null); setDefaultFormValues(null); setShowForm(true) }}
         />
 

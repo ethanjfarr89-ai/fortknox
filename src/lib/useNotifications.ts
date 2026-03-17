@@ -14,23 +14,48 @@ export interface AppNotification {
   friendship?: Friendship
 }
 
-const STORAGE_KEY = 'trove_dismissed_notifs'
+const DISMISSED_KEY = 'trove_dismissed_notifs'
+const READ_KEY = 'trove_read_notifs'
+const HISTORY_KEY = 'trove_notif_history'
+const MAX_HISTORY = 8
 
-function getDismissed(): Set<string> {
+function loadSet(key: string): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]'))
+    return new Set(JSON.parse(localStorage.getItem(key) ?? '[]'))
   } catch {
     return new Set()
   }
 }
 
-function saveDismissed(ids: Set<string>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
+function saveSet(key: string, ids: Set<string>) {
+  localStorage.setItem(key, JSON.stringify([...ids]))
+}
+
+interface HistoryEntry {
+  id: string
+  message: string
+  type: AppNotification['type']
+  sentiment?: 'positive' | 'negative'
+  timestamp: number
+}
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveHistory(entries: HistoryEntry[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)))
 }
 
 export function useNotifications(userId: string | undefined, pending: Friendship[], priceAlerts: AppNotification[] = []) {
   const [shareNotifs, setShareNotifs] = useState<AppNotification[]>([])
-  const [dismissed, setDismissed] = useState<Set<string>>(getDismissed)
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadSet(DISMISSED_KEY))
+  const [read, setRead] = useState<Set<string>>(() => loadSet(READ_KEY))
+  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
 
   // Fetch incoming collection shares
   const fetchIncomingShares = useCallback(async () => {
@@ -98,26 +123,67 @@ export function useNotifications(userId: string | undefined, pending: Friendship
     friendship: f,
   }))
 
-  // Combine and filter dismissed
-  const all = [...friendNotifs, ...shareNotifs, ...priceAlerts].filter(n => !dismissed.has(n.id))
+  // Active notifications (not dismissed)
+  const active = [...friendNotifs, ...shareNotifs, ...priceAlerts].filter(n => !dismissed.has(n.id))
+  const unreadCount = active.filter(n => !read.has(n.id)).length
+
+  const markAllRead = () => {
+    setRead(prev => {
+      const next = new Set(prev)
+      active.forEach(n => next.add(n.id))
+      saveSet(READ_KEY, next)
+      return next
+    })
+  }
 
   const dismiss = (id: string) => {
+    // Save to history before dismissing
+    const notif = active.find(n => n.id === id)
+    if (notif) {
+      setHistory(prev => {
+        const entry: HistoryEntry = {
+          id: notif.id,
+          message: notif.message,
+          type: notif.type,
+          sentiment: notif.sentiment,
+          timestamp: Date.now(),
+        }
+        const next = [entry, ...prev.filter(h => h.id !== id)].slice(0, MAX_HISTORY)
+        saveHistory(next)
+        return next
+      })
+    }
+
     setDismissed(prev => {
       const next = new Set(prev)
       next.add(id)
-      saveDismissed(next)
+      saveSet(DISMISSED_KEY, next)
       return next
     })
   }
 
   const dismissAll = () => {
+    // Save all to history
+    setHistory(prev => {
+      const entries: HistoryEntry[] = active.map(n => ({
+        id: n.id,
+        message: n.message,
+        type: n.type,
+        sentiment: n.sentiment,
+        timestamp: Date.now(),
+      }))
+      const next = [...entries, ...prev.filter(h => !active.some(n => n.id === h.id))].slice(0, MAX_HISTORY)
+      saveHistory(next)
+      return next
+    })
+
     setDismissed(prev => {
       const next = new Set(prev)
-      all.forEach(n => next.add(n.id))
-      saveDismissed(next)
+      active.forEach(n => next.add(n.id))
+      saveSet(DISMISSED_KEY, next)
       return next
     })
   }
 
-  return { notifications: all, dismiss, dismissAll }
+  return { notifications: active, unreadCount, history, dismiss, dismissAll, markAllRead }
 }

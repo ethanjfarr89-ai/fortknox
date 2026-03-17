@@ -2,16 +2,15 @@ import { useState } from 'react'
 import { Gem, FolderOpen, Users, X } from 'lucide-react'
 
 interface Props {
-  pieceCount: number
   onAddPiece: () => void
 }
 
-export default function Onboarding({ pieceCount, onAddPiece }: Props) {
+export default function Onboarding({ onAddPiece }: Props) {
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem('trove_onboarding_complete') === 'true'
   )
 
-  if (dismissed || pieceCount > 0) return null
+  if (dismissed) return null
 
   const handleDismiss = () => {
     localStorage.setItem('trove_onboarding_complete', 'true')
