@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff, Heart } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
 import CroppedImage from './CroppedImage'
 
 interface Props {
@@ -22,8 +22,8 @@ function fmtCurrency(val: number | null) {
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-const metalLabels: Record<string, string> = {
-  gold: 'Yellow Gold', yellow_gold: 'Yellow Gold', white_gold: 'White Gold', rose_gold: 'Rose Gold',
+const metalLabelsShort: Record<string, string> = {
+  gold: 'Gold', yellow_gold: 'Gold', white_gold: 'White Gold', rose_gold: 'Rose Gold',
   silver: 'Silver', platinum: 'Platinum', palladium: 'Palladium', other: 'Other',
 }
 
@@ -57,7 +57,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   const categoryLabel = CATEGORIES.find(c => c.value === piece.category)?.label
 
   const showRoi = prefs.roi && !privacyMode
-  const showInfoRow = prefs.category || prefs.metal || prefs.weight
 
   const prevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -88,14 +87,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   }
   const handleTouchEnd = () => { touchStart.current = null }
 
-  // Build a compact metal+karat+weight label for the info row
-  const metalInfo = prefs.metal
-    ? `${metalLabels[piece.metal_type] ?? piece.metal_type} ${karatLabel(piece)}`.trim()
-    : null
-  const weightInfo = prefs.weight && piece.metal_weight_grams
-    ? `${Math.round(piece.metal_weight_grams * 100) / 100}g`
-    : null
-
   return (
     <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group flex flex-col ${
       piece.is_wishlist ? 'border-neutral-700 border-dashed' : 'border-neutral-800'
@@ -120,7 +111,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
           </div>
         )}
 
-        {/* Photo navigation arrows */}
         {hasMultiplePhotos && (
           <>
             <button
@@ -163,7 +153,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
           )}
         </div>
 
-        {/* Actions overlay */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
           {onToggleFavorite && (
             <button
@@ -189,32 +178,41 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
       </div>
 
       {/* Info */}
-      <div className="p-3 flex flex-col min-h-[120px]">
+      <div className="p-3 flex flex-col">
         {/* Title */}
         <h3 className="font-semibold text-white text-sm truncate">{piece.name}</h3>
 
-        {/* Meta line: category · metal · weight — single line, no wrapping */}
-        {showInfoRow && (
-          <p className="text-xs text-neutral-500 mt-1 truncate">
-            {[
-              prefs.category && categoryLabel,
-              metalInfo,
-              weightInfo && <><Weight className="inline w-3 h-3 align-[-2px]" /> {weightInfo}</>,
-            ].filter(Boolean).map((item, i) => (
-              <span key={i}>{i > 0 && ' · '}{item}</span>
-            ))}
-          </p>
-        )}
+        {/* Details zone — capped height, overflow hidden so it never crowds value */}
+        <div className="h-[34px] overflow-hidden mt-1">
+          {/* Colored badge pills — single row, no wrap */}
+          <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
+            {prefs.metal && (
+              <span className={`shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${metalBadgeClasses(piece.metal_type)}`}>
+                {metalLabelsShort[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
+              </span>
+            )}
+            {prefs.category && categoryLabel && (
+              <span className="shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-300">
+                {categoryLabel}
+              </span>
+            )}
+            {prefs.weight && piece.metal_weight_grams != null && (
+              <span className="shrink-0 flex items-center gap-0.5 text-xs text-neutral-500">
+                <Weight className="w-3 h-3" />
+                {Math.round(piece.metal_weight_grams * 100) / 100}g
+              </span>
+            )}
+            {prefs.gemstones && piece.gemstones?.length > 0 && (
+              <span className="text-xs text-neutral-500 truncate">
+                {piece.gemstones.map(g => g.stone_type).filter(Boolean).join(', ')}
+              </span>
+            )}
+          </div>
+        </div>
 
-        {prefs.gemstones && piece.gemstones?.length > 0 && (
-          <p className="text-xs text-neutral-500 mt-0.5 truncate">
-            {piece.gemstones.map(g => g.stone_type).filter(Boolean).join(', ')}
-          </p>
-        )}
-
-        {/* Value — pinned to bottom */}
+        {/* Value — guaranteed space, never crowded */}
         {prefs.value && (
-          <div className="mt-auto pt-2 border-t border-neutral-800">
+          <div className="pt-2 mt-1 border-t border-neutral-800 shrink-0">
             <div className="flex items-baseline justify-between">
               <span className="text-base font-bold text-gold-400">
                 {privacyMode ? '••••' : fmtCurrency(displayValue)}
