@@ -10,21 +10,23 @@ interface Props {
 /**
  * Displays a cropped image using pure CSS (no canvas, no CORS issues).
  * crop values are percentages (0–100) of the original image.
+ *
+ * The crop region is mapped 1:1 onto the container. Since the user sets
+ * the crop interactively with the container visible, the crop aspect ratio
+ * should closely match the container's — any slight mismatch is imperceptible.
  */
 export default function CroppedImage({ src, alt, crop, className = '' }: Props) {
   if (!crop || (crop.width >= 99.9 && crop.height >= 99.9)) {
     return <img src={src} alt={alt} className={className} />
   }
 
-  // Use uniform scale to avoid stretching — pick the larger scale so the
-  // crop region fully covers the container, then let overflow: hidden clip.
+  // Scale so the crop region fills the container exactly
   const scaleX = 100 / crop.width
   const scaleY = 100 / crop.height
-  const scale = Math.max(scaleX, scaleY)
 
-  // Position the image so the crop region is centered in the container
-  const left = -(crop.x * scale)
-  const top = -(crop.y * scale)
+  // Offset so the crop region's top-left aligns with the container's top-left
+  const left = -(crop.x * scaleX)
+  const top = -(crop.y * scaleY)
 
   return (
     <div className={className} style={{ position: 'relative', overflow: 'hidden' }}>
@@ -33,8 +35,8 @@ export default function CroppedImage({ src, alt, crop, className = '' }: Props) 
         alt={alt}
         style={{
           position: 'absolute',
-          width: `${scale * 100}%`,
-          height: 'auto',
+          width: `${scaleX * 100}%`,
+          height: `${scaleY * 100}%`,
           left: `${left}%`,
           top: `${top}%`,
           maxWidth: 'none',

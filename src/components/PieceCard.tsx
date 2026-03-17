@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff, Heart } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, isGoldType } from '../lib/prices'
 import CroppedImage from './CroppedImage'
 
 interface Props {
@@ -18,8 +18,8 @@ interface Props {
 }
 
 function fmtCurrency(val: number | null) {
-  if (val == null) return '—'
-  return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
+  if (val == null) return '\u2014'
+  return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
 const metalLabels: Record<string, string> = {
@@ -40,7 +40,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   const photos = piece.photo_urls ?? []
   const hasMultiplePhotos = photos.length > 1
   const currentPhoto = photos[photoIndex] ?? photos[0]
-  // Use per-photo crop if available, fall back to profile_photo_crop for the profile photo
   const currentCrop = piece.photo_crops?.[String(photoIndex)]
     ?? (photoIndex === (piece.profile_photo_index ?? 0) ? piece.profile_photo_crop : null)
 
@@ -81,7 +80,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
     if (!touchStart.current || !hasMultiplePhotos || swiped.current) return
     const dx = e.touches[0].clientX - touchStart.current.x
     const dy = e.touches[0].clientY - touchStart.current.y
-    // Only swipe if horizontal movement exceeds vertical (not scrolling)
     if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       swiped.current = true
       if (dx > 0) setPhotoIndex(i => (i - 1 + photos.length) % photos.length)
@@ -90,13 +88,21 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   }
   const handleTouchEnd = () => { touchStart.current = null }
 
+  // Build a compact metal+karat+weight label for the info row
+  const metalInfo = prefs.metal
+    ? `${metalLabels[piece.metal_type] ?? piece.metal_type} ${karatLabel(piece)}`.trim()
+    : null
+  const weightInfo = prefs.weight && piece.metal_weight_grams
+    ? `${Math.round(piece.metal_weight_grams * 100) / 100}g`
+    : null
+
   return (
     <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group flex flex-col ${
       piece.is_wishlist ? 'border-neutral-700 border-dashed' : 'border-neutral-800'
     }`}>
       {/* Photo */}
       <div
-        className="aspect-square bg-neutral-800 relative overflow-hidden"
+        className="aspect-square bg-neutral-800 relative overflow-hidden shrink-0"
         onTouchStart={hasMultiplePhotos ? handleTouchStart : undefined}
         onTouchMove={hasMultiplePhotos ? handleTouchMove : undefined}
         onTouchEnd={hasMultiplePhotos ? handleTouchEnd : undefined}
@@ -129,7 +135,6 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
             >
               <ChevronRight className="w-4 h-4 text-white" />
             </button>
-            {/* Dot indicators */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
               {photos.map((_, i) => (
                 <div
@@ -183,35 +188,35 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         </div>
       </div>
 
-      {/* Info — fixed height for uniform cards */}
-      <div className="p-4 h-[140px] flex flex-col overflow-hidden">
-        <h3 className="font-semibold text-white truncate">{piece.name}</h3>
+      {/* Info */}
+      <div className="p-3 flex flex-col min-h-[120px]">
+        {/* Title */}
+        <h3 className="font-semibold text-white text-sm truncate">{piece.name}</h3>
 
+        {/* Meta line: category · metal · weight — single line, no wrapping */}
         {showInfoRow && (
-          <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400 flex-wrap">
-            {prefs.category && categoryLabel && (
-              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-300">
-                {categoryLabel}
-              </span>
-            )}
-            {prefs.metal && (
-              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${metalBadgeClasses(piece.metal_type)}`}>
-                {metalLabels[piece.metal_type] ?? piece.metal_type} {karatLabel(piece)}
-              </span>
-            )}
-            {prefs.weight && piece.metal_weight_grams && (
-              <span className="flex items-center gap-0.5">
-                <Weight className="w-3 h-3" />
-                {piece.metal_weight_grams}g
-              </span>
-            )}
-          </div>
+          <p className="text-xs text-neutral-500 mt-1 truncate">
+            {[
+              prefs.category && categoryLabel,
+              metalInfo,
+              weightInfo && <><Weight className="inline w-3 h-3 align-[-2px]" /> {weightInfo}</>,
+            ].filter(Boolean).map((item, i) => (
+              <span key={i}>{i > 0 && ' · '}{item}</span>
+            ))}
+          </p>
         )}
 
+        {prefs.gemstones && piece.gemstones?.length > 0 && (
+          <p className="text-xs text-neutral-500 mt-0.5 truncate">
+            {piece.gemstones.map(g => g.stone_type).filter(Boolean).join(', ')}
+          </p>
+        )}
+
+        {/* Value — pinned to bottom */}
         {prefs.value && (
-          <div className="mt-auto pt-3 border-t border-neutral-800">
+          <div className="mt-auto pt-2 border-t border-neutral-800">
             <div className="flex items-baseline justify-between">
-              <span className="text-lg font-bold text-gold-400">
+              <span className="text-base font-bold text-gold-400">
                 {privacyMode ? '••••' : fmtCurrency(displayValue)}
               </span>
               <button
@@ -224,18 +229,12 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
             </div>
 
             {showRoi && roi !== null && (
-              <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <div className={`flex items-center gap-1 text-xs font-medium ${roi >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {roi >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {roi >= 0 ? '+' : ''}{roi.toFixed(1)}% from {fmtCurrency(piece.price_paid)}
+                {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%{piece.price_paid != null && ` from ${fmtCurrency(piece.price_paid)}`}
               </div>
             )}
           </div>
-        )}
-
-        {prefs.gemstones && piece.gemstones?.length > 0 && (
-          <p className="text-xs text-neutral-500 mt-2 truncate">
-            {piece.gemstones.map(g => g.stone_type).filter(Boolean).join(', ')}
-          </p>
         )}
       </div>
     </div>
