@@ -1,6 +1,21 @@
-import { TrendingUp, Eye, EyeOff } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { TrendingUp, Eye, EyeOff, SlidersHorizontal } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, metalBadgeClasses } from '../lib/prices'
+
+export interface SummaryDisplayPrefs {
+  totalValue: boolean
+  weightBreakdown: boolean
+  pieceCount: boolean
+  avgValue: boolean
+}
+
+export const DEFAULT_SUMMARY_PREFS: SummaryDisplayPrefs = {
+  totalValue: true,
+  weightBreakdown: true,
+  pieceCount: true,
+  avgValue: false,
+}
 
 interface Props {
   pieces: JewelryPiece[]
@@ -9,13 +24,30 @@ interface Props {
   onToggleMode: () => void
   privacyMode: boolean
   onTogglePrivacy: () => void
+  summaryPrefs: SummaryDisplayPrefs
+  onUpdateSummaryPref: (key: keyof SummaryDisplayPrefs) => void
 }
 
 function fmt(val: number) {
   return val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-export default function PortfolioSummary({ pieces, prices, valuationMode, onToggleMode, privacyMode, onTogglePrivacy }: Props) {
+export default function PortfolioSummary({ pieces, prices, valuationMode, onToggleMode, privacyMode, onTogglePrivacy, summaryPrefs, onUpdateSummaryPref }: Props) {
+  const [showSettings, setShowSettings] = useState(false)
+  const settingsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false)
+      }
+    }
+    if (showSettings) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showSettings])
+
   const goldTypes = new Set(['gold', 'yellow_gold', 'white_gold', 'rose_gold'])
 
   let totalValue = 0
@@ -55,6 +87,8 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
     }
   }
 
+  const avgValue = piecesWithValue > 0 ? totalValue / piecesWithValue : 0
+
   return (
     <div className="bg-neutral-900 rounded-2xl p-6 border border-gold-400/20">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -71,13 +105,58 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
             >
               {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-1 text-neutral-500 hover:text-gold-400 transition rounded-md hover:bg-neutral-800"
+                title="Summary display settings"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+              {showSettings && (
+                <div className="absolute right-0 mt-1 w-48 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl z-50 py-2">
+                  <p className="px-3 py-1.5 text-xs font-medium text-neutral-500 uppercase tracking-wide">Show in summary</p>
+                  {([
+                    ['totalValue', 'Total Value'],
+                    ['weightBreakdown', 'Weight Breakdown'],
+                    ['pieceCount', 'Piece Count'],
+                    ['avgValue', 'Avg Value/Piece'],
+                  ] as [keyof SummaryDisplayPrefs, string][]).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => onUpdateSummaryPref(key)}
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 transition"
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                        summaryPrefs[key] ? 'bg-gold-400 border-gold-400' : 'border-neutral-600'
+                      }`}>
+                        {summaryPrefs[key] && <span className="text-black text-xs font-bold">✓</span>}
+                      </div>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="text-3xl sm:text-4xl font-bold text-white">
             {privacyMode ? '••••••' : fmt(totalValue)}
           </div>
-          <p className="text-sm text-neutral-500 mt-1">
-            {piecesWithValue} of {pieces.length} pieces valued
-          </p>
+          {summaryPrefs.pieceCount && (
+            <p className="text-sm text-neutral-500 mt-1">
+              {piecesWithValue} of {pieces.length} pieces valued
+              {summaryPrefs.avgValue && piecesWithValue > 0 && (
+                <span className="ml-2">
+                  · Avg: {privacyMode ? '••••' : fmt(avgValue)}/piece
+                </span>
+              )}
+            </p>
+          )}
+          {!summaryPrefs.pieceCount && summaryPrefs.avgValue && piecesWithValue > 0 && (
+            <p className="text-sm text-neutral-500 mt-1">
+              Avg: {privacyMode ? '••••' : fmt(avgValue)}/piece
+            </p>
+          )}
         </div>
 
         <button
@@ -88,7 +167,7 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
         </button>
       </div>
 
-      {totalWeight > 0 && (
+      {summaryPrefs.weightBreakdown && totalWeight > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           <div className="bg-neutral-800 rounded-lg px-3 py-2">
             <p className="text-neutral-500 text-xs">Total Weight</p>

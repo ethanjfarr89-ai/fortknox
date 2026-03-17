@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
+import type { SummaryDisplayPrefs } from '../components/PortfolioSummary'
+import { DEFAULT_SUMMARY_PREFS } from '../components/PortfolioSummary'
 import { usePieces } from '../lib/usePieces'
 import { useSpotPrices } from '../lib/useSpotPrices'
 import { useSnapshots } from '../lib/useSnapshots'
@@ -21,7 +23,7 @@ import PieceForm from '../components/PieceForm'
 import PieceDetail from '../components/PieceDetail'
 import StylingBoards from '../components/StylingBoards'
 import ProfileSettings from '../components/ProfileSettings'
-import FriendsPanel from '../components/FriendsPanel'
+import ReportIssue from '../components/ReportIssue'
 import FriendProfile from '../components/FriendProfile'
 import CollectionManager from '../components/CollectionManager'
 import PiecePicker from '../components/PiecePicker'
@@ -67,7 +69,6 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [viewingPiece, setViewingPiece] = useState<JewelryPiece | null>(null)
   const [defaultFormValues, setDefaultFormValues] = useState<Partial<JewelryPieceInsert> | null>(null)
   const [showProfile, setShowProfile] = useState(false)
-  const [showFriends, setShowFriends] = useState(false)
   const [showCollections, setShowCollections] = useState(false)
   const [showPiecePicker, setShowPiecePicker] = useState(false)
   const [showSharePicker, setShowSharePicker] = useState(false)
@@ -81,8 +82,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     try { return JSON.parse(localStorage.getItem('trove_card_prefs') ?? '') }
     catch { return DEFAULT_CARD_PREFS }
   })
+  const [summaryPrefs, setSummaryPrefs] = useState<SummaryDisplayPrefs>(() => {
+    try { return JSON.parse(localStorage.getItem('trove_summary_prefs') ?? '') }
+    catch { return DEFAULT_SUMMARY_PREFS }
+  })
   const [showCardSettings, setShowCardSettings] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showReportIssue, setShowReportIssue] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid')
   const [bulkSelect, setBulkSelect] = useState(false)
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set())
@@ -113,11 +119,11 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         if (showForm) { closeForm(); return }
         if (viewingPiece) { setViewingPiece(null); return }
         if (showProfile) { setShowProfile(false); return }
-        if (showFriends) { setShowFriends(false); return }
         if (showCollections) { setShowCollections(false); return }
         if (showPiecePicker) { setShowPiecePicker(false); return }
         if (showSharePicker) { setShowSharePicker(false); return }
         if (showExport) { setShowExport(false); return }
+        if (showReportIssue) { setShowReportIssue(false); return }
         if (viewingFriend) { setViewingFriend(null); return }
       }
       // Cmd/Ctrl+N to add piece
@@ -130,7 +136,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [showForm, viewingPiece, showProfile, showFriends, showCollections, showPiecePicker, showSharePicker, showExport, viewingFriend])
+  }, [showForm, viewingPiece, showProfile, showCollections, showPiecePicker, showSharePicker, showExport, showReportIssue, viewingFriend])
 
   const togglePrivacy = () => {
     setPrivacyMode(prev => {
@@ -149,7 +155,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     })
   }
 
-  const incomingRequests = pending.filter(f => f.addressee_id === userId)
+  const updateSummaryPref = (key: keyof SummaryDisplayPrefs) => {
+    setSummaryPrefs(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      localStorage.setItem('trove_summary_prefs', JSON.stringify(next))
+      return next
+    })
+  }
 
   // Record daily snapshot
   useEffect(() => {
@@ -352,15 +364,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     <div className="min-h-screen bg-[#0a0a0a]">
       <Header
         profile={profile}
-        pendingFriendCount={incomingRequests.length}
+        userId={userId}
+        friends={friends}
+        pending={pending}
         notifications={notifications}
         unreadCount={unreadCount}
         history={notifHistory}
         onDismissNotif={dismissNotif}
         onDismissAllNotifs={dismissAllNotifs}
         onMarkAllRead={markAllRead}
-        onOpenFriends={() => setShowFriends(true)}
-        onViewFriend={(n) => {
+        onSendRequest={sendRequest}
+        onSearchProfiles={searchProfiles}
+        onRespond={respondToRequest}
+        onViewFriend={(f) => setViewingFriend(f)}
+        onViewFriendFromNotif={(n) => {
           if (!n.senderUserId) return
           const friend = friends.find(f => {
             const fid = f.requester_id === userId ? f.addressee_id : f.requester_id
@@ -370,6 +387,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         }}
         onSignOut={onSignOut}
         onOpenProfile={() => setShowProfile(true)}
+        onReportIssue={() => setShowReportIssue(true)}
       />
       <SpotPriceBar prices={prices} loading={pricesLoading} onRefresh={refreshPrices} />
 
@@ -401,6 +419,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               onToggleMode={() => setValuationMode(m => m === 'melt' ? 'appraised' : 'melt')}
               privacyMode={privacyMode}
               onTogglePrivacy={togglePrivacy}
+              summaryPrefs={summaryPrefs}
+              onUpdateSummaryPref={updateSummaryPref}
             />
             <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} snapshots={snapshots} />
 
@@ -862,19 +882,6 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         />
       )}
 
-      {showFriends && (
-        <FriendsPanel
-          friends={friends}
-          pending={pending}
-          userId={userId}
-          onSendRequest={sendRequest}
-          onSearchProfiles={searchProfiles}
-          onRespond={respondToRequest}
-          onViewFriend={(f) => setViewingFriend(f)}
-          onClose={() => setShowFriends(false)}
-        />
-      )}
-
       {showCollections && (
         <CollectionManager
           collections={collections}
@@ -930,6 +937,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onUnshare={(friendId) => unshareCollection(selectedCollection, friendId)}
           onUpdatePrefs={(friendId, prefs) => updateSharePrefs(selectedCollection, friendId, prefs)}
           onClose={() => setShowSharePicker(false)}
+        />
+      )}
+
+      {showReportIssue && (
+        <ReportIssue
+          userId={userId}
+          onClose={() => setShowReportIssue(false)}
         />
       )}
     </div>
