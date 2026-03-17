@@ -88,7 +88,7 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
   const handleTouchEnd = () => { touchStart.current = null }
 
   return (
-    <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group flex flex-col ${
+    <div className={`bg-neutral-900 rounded-xl border overflow-hidden hover:border-gold-400/40 transition group flex flex-col h-full ${
       piece.is_wishlist ? 'border-neutral-700 border-dashed' : 'border-neutral-800'
     }`}>
       {/* Photo */}

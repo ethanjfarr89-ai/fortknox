@@ -795,7 +795,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                   <div
                     key={piece.id}
                     onClick={() => bulkSelect ? togglePieceSelect(piece.id) : setViewingPiece(piece)}
-                    className={`cursor-pointer relative ${bulkSelect && selectedPieceIds.has(piece.id) ? 'ring-2 ring-gold-400 rounded-xl' : ''}`}
+                    className={`cursor-pointer relative h-full ${bulkSelect && selectedPieceIds.has(piece.id) ? 'ring-2 ring-gold-400 rounded-xl' : ''}`}
                   >
                     {bulkSelect && (
                       <div className="absolute top-2 left-2 z-10">
