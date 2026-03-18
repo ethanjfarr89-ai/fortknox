@@ -8,7 +8,7 @@ import CroppedImage from './CroppedImage'
 
 interface Props {
   profile: UserProfile
-  onUpdate: (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null }) => Promise<{ error: unknown }>
+  onUpdate: (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; instagram_handle?: string | null }) => Promise<{ error: unknown }>
   onClose: () => void
 }
 
@@ -18,6 +18,7 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? '')
   const [showCropper, setShowCropper] = useState(false)
   const [avatarCrop, setAvatarCrop] = useState<CropArea | null>(profile.avatar_crop ?? null)
+  const [instagramHandle, setInstagramHandle] = useState(profile.instagram_handle ?? '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +49,7 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
       display_name: displayName.trim() || null,
       avatar_url: avatarUrl || null,
       avatar_crop: avatarCrop,
+      instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
     })
     setSaving(false)
     if (saveError) {
@@ -104,6 +106,21 @@ export default function ProfileSettings({ profile, onUpdate, onClose }: Props) {
               <label className="block text-sm font-medium text-neutral-400 mb-1">Display Name</label>
               <input value={displayName} onChange={e => setDisplayName(e.target.value)} className={inputCls} placeholder="Your name" />
               <p className="text-xs text-neutral-600 mt-1">Friends will find you by this name.</p>
+            </div>
+
+            {/* Instagram */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-400 mb-1">Instagram</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">@</span>
+                <input
+                  value={instagramHandle}
+                  onChange={e => setInstagramHandle(e.target.value)}
+                  className={`${inputCls} pl-7`}
+                  placeholder="your_handle"
+                />
+              </div>
+              <p className="text-xs text-neutral-600 mt-1">Shown on your profile and feed posts.</p>
             </div>
 
             <p className="text-xs text-neutral-500">

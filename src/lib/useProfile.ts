@@ -29,7 +29,7 @@ export function useProfile(userId: string | undefined) {
 
   useEffect(() => { fetchProfile() }, [fetchProfile])
 
-  const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; card_display_prefs?: CardDisplayPrefs | null }) => {
+  const updateProfile = async (updates: { display_name?: string | null; avatar_url?: string | null; avatar_crop?: CropArea | null; card_display_prefs?: CardDisplayPrefs | null; instagram_handle?: string | null }) => {
     if (!userId) return { error: null }
 
     const { data, error } = await supabase

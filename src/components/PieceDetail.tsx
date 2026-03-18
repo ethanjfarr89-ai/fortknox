@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy, Share2, Link2, Check, Trash2, Heart } from 'lucide-react'
+import { X, Gem, Weight, Calendar, Sparkles, TrendingUp, TrendingDown, Stamp, Shirt, Gift, Crown, FolderOpen, Copy, Share2, Link2, Check, Trash2, Heart, Archive, RotateCcw } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, Collection } from '../types'
 import type { PieceShare } from '../lib/usePieceShares'
 import { CATEGORIES } from '../types'
@@ -21,6 +21,10 @@ interface Props {
   onDeleteShare?: (pieceId: string) => Promise<void>
   onUpdateShareValue?: (pieceId: string, showValue: boolean) => Promise<void>
   onToggleFavorite?: (id: string) => void
+  onRetire?: (piece: JewelryPiece) => void
+  onReactivate?: (id: string) => Promise<unknown>
+  onShareToFeed?: (pieceId: string, caption: string | null, isNominated: boolean) => Promise<void>
+  readOnly?: boolean
 }
 
 function fmtCurrency(val: number | null) {
@@ -60,7 +64,7 @@ function PhotoGallery({ label, icon, photos }: { label: string; icon: React.Reac
   )
 }
 
-export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections, pieceShare, onCreateShare, onDeleteShare, onUpdateShareValue, onToggleFavorite }: Props) {
+export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicate, pieceCollections, collections, pieceShare, onCreateShare, onDeleteShare, onUpdateShareValue, onToggleFavorite, onRetire, onReactivate, onShareToFeed, readOnly }: Props) {
   useScrollLock()
   const [mainLightbox, setMainLightbox] = useState<number | null>(null)
   const meltOnly = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
@@ -115,6 +119,11 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
 
   const [shareLoading, setShareLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showFeedShare, setShowFeedShare] = useState(false)
+  const [feedCaption, setFeedCaption] = useState('')
+  const [feedNominate, setFeedNominate] = useState(false)
+  const [feedSharing, setFeedSharing] = useState(false)
+  const [feedShared, setFeedShared] = useState(false)
 
   function ShareSection({ piece: p, pieceShare: ps, onCreateShare: onCreate, onDeleteShare: onDelete, onUpdateShareValue: onUpdateVal }: {
     piece: JewelryPiece
@@ -221,10 +230,12 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
         {/* Main photo */}
         {profilePhoto ? (
           <div
-            className="aspect-video overflow-hidden rounded-t-2xl bg-neutral-800 cursor-pointer"
+            className="aspect-video overflow-hidden rounded-t-2xl bg-neutral-800 cursor-pointer shrink-0 relative"
             onClick={() => setMainLightbox(piece.profile_photo_index ?? 0)}
           >
-            <CroppedImage src={profilePhoto} alt={piece.name} crop={piece.profile_photo_crop} className="w-full h-full object-cover" />
+            <div className="absolute inset-0">
+              <CroppedImage src={profilePhoto} alt={piece.name} crop={piece.profile_photo_crop} className="w-full h-full object-cover" />
+            </div>
           </div>
         ) : (
           <div className="h-40 bg-neutral-800 rounded-t-2xl flex items-center justify-center">
@@ -268,6 +279,35 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
             {piece.description && <p className="text-sm text-neutral-400 mt-1">{piece.description}</p>}
           </div>
 
+          {/* Archive banner */}
+          {piece.status && piece.status !== 'active' && (
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-900/20 border border-amber-800/30 rounded-lg">
+              <Archive className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="text-sm text-amber-300">
+                {piece.status === 'sold' && (
+                  <>Sold{piece.date_departed && ` on ${new Date(piece.date_departed).toLocaleDateString()}`}{piece.sale_price != null && ` for ${fmtCurrency(piece.sale_price)}`}{piece.departed_to && ` to ${piece.departed_to}`}</>
+                )}
+                {piece.status === 'gifted_away' && (
+                  <>Gifted{piece.departed_to && ` to ${piece.departed_to}`}{piece.date_departed && ` on ${new Date(piece.date_departed).toLocaleDateString()}`}</>
+                )}
+                {piece.status === 'lost' && (
+                  <>Lost / Stolen{piece.date_departed && ` — ${new Date(piece.date_departed).toLocaleDateString()}`}</>
+                )}
+                {piece.status === 'retired' && (
+                  <>Archived{piece.date_departed && ` on ${new Date(piece.date_departed).toLocaleDateString()}`}</>
+                )}
+              </div>
+              {onReactivate && (
+                <button
+                  onClick={() => onReactivate(piece.id)}
+                  className="ml-auto shrink-0 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition font-medium"
+                >
+                  <RotateCcw className="w-3 h-3" /> Restore
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
             {categoryLabel && (
@@ -276,7 +316,7 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${metalBadgeClasses(piece.metal_type)}`}>
               {metalLabels[piece.metal_type]} {isGoldType(piece.metal_type) && piece.metal_karat ? `${piece.metal_karat}K` : ''}
             </span>
-            {piece.metal_weight_grams && (
+            {!readOnly && piece.metal_weight_grams && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-neutral-800 text-neutral-300">
                 <Weight className="w-3.5 h-3.5" /> {Math.round(piece.metal_weight_grams * 100) / 100}g
               </span>
@@ -295,26 +335,28 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
 
           {dimInfo.length > 0 && <div className="text-sm text-neutral-400">{dimInfo.join(' · ')}</div>}
 
-          {/* Values */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-neutral-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-xs text-neutral-500">Melt Value</span>
-                <RoiBadge roi={meltRoi} />
+          {/* Values — hidden in read-only mode */}
+          {!readOnly && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-neutral-800 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs text-neutral-500">Melt Value</span>
+                  <RoiBadge roi={meltRoi} />
+                </div>
+                <div className="text-lg font-bold text-gold-400">{fmtCurrency(meltValue)}</div>
               </div>
-              <div className="text-lg font-bold text-gold-400">{fmtCurrency(meltValue)}</div>
-            </div>
-            <div className="bg-neutral-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-xs text-neutral-500">Appraised</span>
-                <RoiBadge roi={appraisedRoi} />
+              <div className="bg-neutral-800 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs text-neutral-500">Appraised</span>
+                  <RoiBadge roi={appraisedRoi} />
+                </div>
+                <div className="text-lg font-bold text-gold-400">{fmtCurrency(piece.appraised_value)}</div>
               </div>
-              <div className="text-lg font-bold text-gold-400">{fmtCurrency(piece.appraised_value)}</div>
             </div>
-          </div>
+          )}
 
-          {/* Acquisition info */}
-          {piece.acquisition_type === 'purchased' && (piece.price_paid != null || piece.date_purchased) && (
+          {/* Acquisition info — hidden in read-only mode */}
+          {!readOnly && piece.acquisition_type === 'purchased' && (piece.price_paid != null || piece.date_purchased) && (
             <div className="bg-neutral-800 rounded-xl p-3">
               <div className="text-xs text-neutral-500 mb-1">Purchase Info</div>
               <div className="flex gap-4 text-sm text-neutral-300">
@@ -393,7 +435,7 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
         </div>
 
         {/* Share section */}
-        {onCreateShare && (
+        {!readOnly && onCreateShare && (
           <ShareSection
             piece={piece}
             pieceShare={pieceShare ?? null}
@@ -403,23 +445,111 @@ export default function PieceDetail({ piece, prices, onClose, onEdit, onDuplicat
           />
         )}
 
-        <div className="p-5 border-t border-neutral-800 flex gap-3">
-          {onDuplicate && (
-            <button
-              onClick={() => { onClose(); onDuplicate(piece) }}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:bg-neutral-800 transition text-sm"
-            >
-              <Copy className="w-4 h-4" />
-              Duplicate
-            </button>
+        {/* Share to Feed */}
+        {!readOnly && onShareToFeed && piece.status === 'active' && (
+          <div className="px-5 pb-4">
+            {feedShared ? (
+              <div className="flex items-center justify-center gap-2 py-2 text-emerald-400 text-sm font-medium">
+                <Sparkles className="w-4 h-4" /> Shared to Feed!
+              </div>
+            ) : !showFeedShare ? (
+              <button
+                onClick={() => setShowFeedShare(true)}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-800 transition text-sm"
+              >
+                <Sparkles className="w-4 h-4 text-gold-400" />
+                Share to Feed
+              </button>
+            ) : (
+              <div className="bg-neutral-800 rounded-xl p-3 space-y-3">
+                <textarea
+                  value={feedCaption}
+                  onChange={e => setFeedCaption(e.target.value)}
+                  placeholder="Say something about this piece... (optional)"
+                  rows={2}
+                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 outline-none focus:ring-1 focus:ring-gold-400 resize-none"
+                />
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                    feedNominate ? 'bg-gold-400 border-gold-400' : 'border-neutral-600'
+                  }`}>
+                    {feedNominate && <span className="text-black text-xs font-bold">✓</span>}
+                  </div>
+                  <input type="checkbox" checked={feedNominate} onChange={e => setFeedNominate(e.target.checked)} className="hidden" />
+                  <div>
+                    <span className="text-sm text-neutral-300">Nominate as Daily Gem</span>
+                    <p className="text-xs text-neutral-500">Visible to all Trove users, not just friends</p>
+                  </div>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowFeedShare(false); setFeedCaption(''); setFeedNominate(false) }}
+                    className="flex-1 py-2 border border-neutral-700 text-neutral-400 rounded-lg hover:bg-neutral-900 transition text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setFeedSharing(true)
+                      await onShareToFeed(piece.id, feedCaption.trim() || null, feedNominate)
+                      setFeedSharing(false)
+                      setShowFeedShare(false)
+                      setFeedShared(true)
+                      setTimeout(() => setFeedShared(false), 3000)
+                    }}
+                    disabled={feedSharing}
+                    className="flex-1 py-2 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm disabled:opacity-50"
+                  >
+                    {feedSharing ? 'Posting...' : 'Post'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!readOnly && <div className="p-5 border-t border-neutral-800 flex gap-3">
+          {piece.status && piece.status !== 'active' ? (
+            <>
+              {onReactivate && (
+                <button
+                  onClick={() => { onReactivate(piece.id); onClose() }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restore to Collection
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {onDuplicate && (
+                <button
+                  onClick={() => { onClose(); onDuplicate(piece) }}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:bg-neutral-800 transition text-sm"
+                >
+                  <Copy className="w-4 h-4" />
+                  Duplicate
+                </button>
+              )}
+              {onRetire && (
+                <button
+                  onClick={() => { onClose(); onRetire(piece) }}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:bg-neutral-800 transition text-sm"
+                >
+                  <Archive className="w-4 h-4" />
+                  Archive
+                </button>
+              )}
+              <button
+                onClick={() => { onClose(); onEdit(piece) }}
+                className="flex-1 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
+              >
+                Edit Piece
+              </button>
+            </>
           )}
-          <button
-            onClick={() => { onClose(); onEdit(piece) }}
-            className="flex-1 py-2.5 bg-gold-400 hover:bg-gold-300 text-black font-medium rounded-lg transition text-sm"
-          >
-            Edit Piece
-          </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

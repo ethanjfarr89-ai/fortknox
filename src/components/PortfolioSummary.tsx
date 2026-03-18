@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { TrendingUp, Eye, EyeOff, SlidersHorizontal } from 'lucide-react'
+import { TrendingUp, TrendingDown, Eye, EyeOff, SlidersHorizontal, Crown } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode } from '../types'
-import { calculateMeltValue, calculateGemstoneValue, metalBadgeClasses } from '../lib/prices'
+import { calculateMeltValue, calculateGemstoneValue, metalBadgeClasses, isGoldType } from '../lib/prices'
 
 export interface SummaryDisplayPrefs {
   totalValue: boolean
   weightBreakdown: boolean
   pieceCount: boolean
   avgValue: boolean
+  totalGain: boolean
+  topPiece: boolean
+  metalAllocation: boolean
 }
 
 export const DEFAULT_SUMMARY_PREFS: SummaryDisplayPrefs = {
@@ -15,6 +18,9 @@ export const DEFAULT_SUMMARY_PREFS: SummaryDisplayPrefs = {
   weightBreakdown: true,
   pieceCount: true,
   avgValue: false,
+  totalGain: false,
+  topPiece: false,
+  metalAllocation: false,
 }
 
 interface Props {
@@ -48,8 +54,6 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showSettings])
 
-  const goldTypes = new Set(['gold', 'yellow_gold', 'white_gold', 'rose_gold'])
-
   let totalValue = 0
   let piecesWithValue = 0
   let totalWeight = 0
@@ -58,7 +62,7 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
   for (const piece of pieces) {
     if (piece.metal_weight_grams != null) {
       totalWeight += piece.metal_weight_grams
-      const group = goldTypes.has(piece.metal_type) ? 'gold' : piece.metal_type
+      const group = isGoldType(piece.metal_type) ? 'gold' : piece.metal_type
       weightByMetal[group] = (weightByMetal[group] ?? 0) + piece.metal_weight_grams
     }
   }
@@ -88,6 +92,60 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
   }
 
   const avgValue = piecesWithValue > 0 ? totalValue / piecesWithValue : 0
+
+  // Total Gain/Loss
+  let totalGain = 0
+  let hasGainData = false
+  for (const piece of pieces) {
+    if (piece.price_paid != null && piece.price_paid > 0) {
+      let pieceValue = 0
+      if (valuationMode === 'appraised' && piece.appraised_value != null) {
+        pieceValue = piece.appraised_value
+      } else {
+        const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+        const gemVal = calculateGemstoneValue(piece.gemstones)
+        pieceValue = (melt ?? 0) + gemVal
+      }
+      if (pieceValue > 0) {
+        totalGain += pieceValue - piece.price_paid
+        hasGainData = true
+      }
+    }
+  }
+
+  // Most Valuable Piece
+  let topPiece: { name: string; value: number } | null = null
+  for (const piece of pieces) {
+    let pieceValue = 0
+    if (valuationMode === 'appraised' && piece.appraised_value != null) {
+      pieceValue = piece.appraised_value
+    } else {
+      const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+      const gemVal = calculateGemstoneValue(piece.gemstones)
+      pieceValue = (melt ?? 0) + gemVal
+    }
+    if (pieceValue > 0 && (topPiece == null || pieceValue > topPiece.value)) {
+      topPiece = { name: piece.name, value: pieceValue }
+    }
+  }
+
+  // Metal Allocation (by value)
+  const valueByMetal: Record<string, number> = {}
+  for (const piece of pieces) {
+    let pieceValue = 0
+    if (valuationMode === 'appraised' && piece.appraised_value != null) {
+      pieceValue = piece.appraised_value
+    } else {
+      const melt = calculateMeltValue(piece.metal_type, piece.metal_weight_grams, piece.metal_karat, prices)
+      const gemVal = calculateGemstoneValue(piece.gemstones)
+      pieceValue = (melt ?? 0) + gemVal
+    }
+    if (pieceValue > 0) {
+      const group = isGoldType(piece.metal_type) ? 'gold' : piece.metal_type
+      valueByMetal[group] = (valueByMetal[group] ?? 0) + pieceValue
+    }
+  }
+  const totalAllocValue = Object.values(valueByMetal).reduce((a, b) => a + b, 0)
 
   return (
     <div className="bg-neutral-900 rounded-2xl p-6 border border-gold-400/20">
@@ -121,6 +179,9 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
                     ['weightBreakdown', 'Weight Breakdown'],
                     ['pieceCount', 'Piece Count'],
                     ['avgValue', 'Avg Value/Piece'],
+                    ['totalGain', 'Total Gain/Loss'],
+                    ['topPiece', 'Most Valuable Piece'],
+                    ['metalAllocation', 'Metal Allocation'],
                   ] as [keyof SummaryDisplayPrefs, string][]).map(([key, label]) => (
                     <button
                       key={key}
@@ -167,24 +228,100 @@ export default function PortfolioSummary({ pieces, prices, valuationMode, onTogg
         </button>
       </div>
 
-      {summaryPrefs.weightBreakdown && totalWeight > 0 && (
+      {/* Stats row */}
+      {(summaryPrefs.weightBreakdown || summaryPrefs.totalGain || summaryPrefs.topPiece) && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <div className="bg-neutral-800 rounded-lg px-3 py-2">
-            <p className="text-neutral-500 text-xs">Total Weight</p>
-            <p className="text-neutral-300 text-xs font-medium">
-              {privacyMode ? '••••' : `${totalWeight.toFixed(1)}g`}
-            </p>
-          </div>
-          {metalOrder
-            .filter((m) => weightByMetal[m] != null)
-            .map((m) => (
-              <div key={m} className="bg-neutral-800 rounded-lg px-3 py-2">
-                <p className={`text-xs ${metalBadgeClasses(m)}`}>{metalLabels[m]}</p>
+          {summaryPrefs.totalGain && hasGainData && (
+            <div className="bg-neutral-800 rounded-lg px-3 py-2">
+              <p className="text-neutral-500 text-xs">Total Gain/Loss</p>
+              <p className={`text-xs font-medium flex items-center gap-1 ${totalGain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {privacyMode ? '••••' : (
+                  <>
+                    {totalGain >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {totalGain >= 0 ? '+' : ''}{fmt(totalGain)}
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+          {summaryPrefs.topPiece && topPiece && (
+            <div className="bg-neutral-800 rounded-lg px-3 py-2">
+              <p className="text-neutral-500 text-xs flex items-center gap-1">
+                <Crown className="w-3 h-3 text-gold-400" /> Most Valuable
+              </p>
+              <p className="text-neutral-300 text-xs font-medium truncate max-w-[140px]">
+                {privacyMode ? '••••' : `${topPiece.name} · ${fmt(topPiece.value)}`}
+              </p>
+            </div>
+          )}
+          {summaryPrefs.weightBreakdown && totalWeight > 0 && (
+            <>
+              <div className="bg-neutral-800 rounded-lg px-3 py-2">
+                <p className="text-neutral-500 text-xs">Total Weight</p>
                 <p className="text-neutral-300 text-xs font-medium">
-                  {privacyMode ? '••••' : `${weightByMetal[m].toFixed(1)}g`}
+                  {privacyMode ? '••••' : `${totalWeight.toFixed(1)}g`}
                 </p>
               </div>
-            ))}
+              {metalOrder
+                .filter((m) => weightByMetal[m] != null)
+                .map((m) => (
+                  <div key={m} className="bg-neutral-800 rounded-lg px-3 py-2">
+                    <p className={`text-xs ${metalBadgeClasses(m)}`}>{metalLabels[m]}</p>
+                    <p className="text-neutral-300 text-xs font-medium">
+                      {privacyMode ? '••••' : `${weightByMetal[m].toFixed(1)}g`}
+                    </p>
+                  </div>
+                ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Metal Allocation bar */}
+      {summaryPrefs.metalAllocation && totalAllocValue > 0 && (
+        <div className="mt-4">
+          <p className="text-neutral-500 text-xs mb-2">Metal Allocation by Value</p>
+          <div className="h-3 rounded-full overflow-hidden flex">
+            {metalOrder
+              .filter((m) => valueByMetal[m] != null)
+              .map((m) => {
+                const pct = (valueByMetal[m] / totalAllocValue) * 100
+                const colors: Record<string, string> = {
+                  gold: 'bg-yellow-500',
+                  silver: 'bg-neutral-400',
+                  platinum: 'bg-blue-400',
+                  palladium: 'bg-teal-400',
+                }
+                return (
+                  <div
+                    key={m}
+                    className={`${colors[m] ?? 'bg-neutral-600'} transition-all`}
+                    style={{ width: `${pct}%` }}
+                    title={`${metalLabels[m]}: ${pct.toFixed(1)}%`}
+                  />
+                )
+              })}
+            {valueByMetal['other'] != null && (
+              <div
+                className="bg-neutral-600 transition-all"
+                style={{ width: `${(valueByMetal['other'] / totalAllocValue) * 100}%` }}
+                title={`Other: ${((valueByMetal['other'] / totalAllocValue) * 100).toFixed(1)}%`}
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3 mt-1.5">
+            {metalOrder
+              .filter((m) => valueByMetal[m] != null)
+              .map((m) => {
+                const pct = (valueByMetal[m] / totalAllocValue) * 100
+                return (
+                  <span key={m} className="text-xs text-neutral-400">
+                    <span className={metalBadgeClasses(m)}>{metalLabels[m]}</span>{' '}
+                    {privacyMode ? '••%' : `${pct.toFixed(0)}%`}
+                  </span>
+                )
+              })}
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, Trash2, FolderPlus, LayoutGrid, List, ChevronDown, Heart } from 'lucide-react'
+import { Plus, Search, FolderOpen, Settings, ArrowUp, ArrowDown, Share2, Gem, SlidersHorizontal, FileText, Clock, CheckSquare, FolderPlus, LayoutGrid, List, ChevronDown, Heart, Archive, Sparkles } from 'lucide-react'
 import type { JewelryPiece, JewelryPieceInsert, ValuationMode, Category, CardDisplayPrefs, Friendship } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import type { SummaryDisplayPrefs } from '../components/PortfolioSummary'
@@ -32,16 +32,19 @@ import ExportReport from '../components/ExportReport'
 import Onboarding from '../components/Onboarding'
 import PieceTimeline from '../components/PieceTimeline'
 import { usePieceShares } from '../lib/usePieceShares'
+import RetireModal from '../components/RetireModal'
+import ShowAndTellFeed from '../components/ShowAndTellFeed'
+import { useFeed } from '../lib/useFeed'
 
 interface Props {
   userId: string
   onSignOut: () => void
 }
 
-type Tab = 'portfolio' | 'wishlist' | 'styling'
+type Tab = 'portfolio' | 'wishlist' | 'archive' | 'styling' | 'feed'
 
 export default function Dashboard({ userId, onSignOut }: Props) {
-  const { pieces, loading, addPiece, updatePiece, deletePiece, toggleFavorite } = usePieces(userId)
+  const { pieces, loading, addPiece, updatePiece, deletePiece, retirePiece, reactivatePiece, toggleFavorite } = usePieces(userId)
   const { prices, loading: pricesLoading, refresh: refreshPrices } = useSpotPrices()
   const { snapshots, saveSnapshot } = useSnapshots(userId)
   const { profile, updateProfile } = useProfile(userId)
@@ -49,6 +52,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const { boards, addBoard, updateBoard, deleteBoard } = useStylingBoards(userId)
   const { friends, pending, sendRequest, searchProfiles, respondToRequest, removeFriend, fetchFriendPieces, fetchSharedCollections, fetchSharedPieceCollections } = useFriends(userId)
   const { createShare, deleteShare, updateShowValue, getShareForPiece } = usePieceShares(userId)
+  const { posts: feedPosts, dailyGem, loading: feedLoading, createPost: createFeedPost, deletePost: deleteFeedPost, toggleReaction } = useFeed(userId)
   // Compute current total for price alerts
   const currentTotalValue = useMemo(() => {
     let total = 0
@@ -96,6 +100,8 @@ export default function Dashboard({ userId, onSignOut }: Props) {
   const [recentCollapsed, setRecentCollapsed] = useState(() => localStorage.getItem('trove_recent_collapsed') === 'true')
   const [bulkSelect, setBulkSelect] = useState(false)
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set())
+  const [retiringPiece, setRetiringPiece] = useState<JewelryPiece | null>(null)
+  const [viewingFromFeed, setViewingFromFeed] = useState(false)
   const cardSettingsRef = useRef<HTMLDivElement>(null)
 
   // Sync card prefs from profile on load (profile is source of truth across devices)
@@ -120,6 +126,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     const handler = (e: KeyboardEvent) => {
       // Escape to close modals
       if (e.key === 'Escape') {
+        if (retiringPiece) { setRetiringPiece(null); return }
         if (showForm) { closeForm(); return }
         if (viewingPiece) { setViewingPiece(null); return }
         if (showProfile) { setShowProfile(false); return }
@@ -140,7 +147,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [showForm, viewingPiece, showProfile, showCollections, showPiecePicker, showSharePicker, showExport, showReportIssue, viewingFriend])
+  }, [showForm, viewingPiece, showProfile, showCollections, showPiecePicker, showSharePicker, showExport, showReportIssue, viewingFriend, retiringPiece])
 
   const togglePrivacy = () => {
     setPrivacyMode(prev => {
@@ -167,9 +174,9 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     })
   }
 
-  // Record daily snapshot
+  // Record daily snapshot (active pieces only)
   useEffect(() => {
-    const collectionPieces = pieces.filter(p => !p.is_wishlist)
+    const collectionPieces = pieces.filter(p => !p.is_wishlist && (p.status === 'active' || !p.status))
     if (collectionPieces.length === 0 || !prices.gold) return
 
     let totalMelt = 0
@@ -184,11 +191,12 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     saveSnapshot(totalMelt, totalAppraised)
   }, [pieces, prices, saveSnapshot])
 
-  const collectionPieces = pieces.filter(p => !p.is_wishlist)
+  const collectionPieces = pieces.filter(p => !p.is_wishlist && (p.status === 'active' || !p.status))
+  const archivedPieces = pieces.filter(p => !p.is_wishlist && p.status && p.status !== 'active')
   const wishlistPieces = pieces.filter(p => p.is_wishlist)
 
   // Filter by selected sub-collection
-  let activePieces = tab === 'wishlist' ? wishlistPieces : collectionPieces
+  let activePieces = tab === 'archive' ? archivedPieces : tab === 'wishlist' ? wishlistPieces : collectionPieces
   if (tab === 'portfolio' && selectedCollection) {
     const pieceIdsInCollection = Object.entries(pieceCollectionMap)
       .filter(([, colIds]) => colIds.includes(selectedCollection))
@@ -304,11 +312,19 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     return addPiece(data)
   }
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this piece? This cannot be undone.')) {
-      await deletePiece(id)
-      if (viewingPiece?.id === id) setViewingPiece(null)
-    }
+  const handleDelete = (id: string) => {
+    const piece = pieces.find(p => p.id === id)
+    if (piece) setRetiringPiece(piece)
+  }
+
+  const handleHardDelete = async (id: string) => {
+    await deletePiece(id)
+    if (viewingPiece?.id === id) setViewingPiece(null)
+  }
+
+  const handleRetireConfirm = async (id: string, opts: Parameters<typeof retirePiece>[1]) => {
+    await retirePiece(id, opts)
+    if (viewingPiece?.id === id) setViewingPiece(null)
   }
 
   const handleEdit = (piece: JewelryPiece) => {
@@ -339,10 +355,11 @@ export default function Dashboard({ userId, onSignOut }: Props) {
     })
   }, [])
 
-  const bulkDelete = async () => {
-    if (!window.confirm(`Delete ${selectedPieceIds.size} piece${selectedPieceIds.size > 1 ? 's' : ''}? This cannot be undone.`)) return
+  const bulkRetire = async () => {
+    if (!window.confirm(`Archive ${selectedPieceIds.size} piece${selectedPieceIds.size > 1 ? 's' : ''} as retired?`)) return
+    const today = new Date().toISOString().split('T')[0]
     for (const id of selectedPieceIds) {
-      await deletePiece(id)
+      await retirePiece(id, { status: 'retired', date_departed: today })
     }
     setSelectedPieceIds(new Set())
     setBulkSelect(false)
@@ -431,7 +448,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               summaryPrefs={summaryPrefs}
               onUpdateSummaryPref={updateSummaryPref}
             />
-            <PortfolioChart pieces={filtered} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} snapshots={snapshots} />
+            <PortfolioChart pieces={pieces.filter(p => !p.is_wishlist)} prices={prices} valuationMode={valuationMode} privacyMode={privacyMode} snapshots={snapshots} />
 
             {/* Recently added */}
             {recentlyAdded.length > 0 && (
@@ -486,12 +503,13 @@ export default function Dashboard({ userId, onSignOut }: Props) {
               {portfolioLabel} ({collectionPieces.length})
             </button>
             <button
-              onClick={() => setTab('wishlist')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
-                tab === 'wishlist' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
+              onClick={() => setTab('feed')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                tab === 'feed' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              Wishlist ({wishlistPieces.length})
+              <Sparkles className="w-3.5 h-3.5" />
+              Show & Tell
             </button>
             <button
               onClick={() => setTab('styling')}
@@ -501,6 +519,25 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             >
               Styling
             </button>
+            <button
+              onClick={() => setTab('wishlist')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                tab === 'wishlist' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              Wishlist ({wishlistPieces.length})
+            </button>
+            {archivedPieces.length > 0 && (
+              <button
+                onClick={() => setTab('archive')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                  tab === 'archive' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                Archive ({archivedPieces.length})
+              </button>
+            )}
           </div>
 
           {/* Collection filter pills */}
@@ -570,7 +607,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         </div>
 
         {/* Category filter + sort */}
-        {tab !== 'styling' && (
+        {tab !== 'styling' && tab !== 'feed' && (
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
@@ -692,6 +729,21 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           </div>
         )}
 
+        {/* Feed tab */}
+        {tab === 'feed' && (
+          <ShowAndTellFeed
+            posts={feedPosts}
+            dailyGem={dailyGem}
+            loading={feedLoading}
+            currentUserId={userId}
+            onToggleReaction={toggleReaction}
+            onDeletePost={deleteFeedPost}
+            onViewPiece={(piece) => { if (piece) { setViewingPiece(piece); setViewingFromFeed(true) } }}
+            onSendFriendRequest={sendRequest}
+            friends={friends.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id)}
+          />
+        )}
+
         {/* Styling tab */}
         {tab === 'styling' && (
           <StylingBoards
@@ -705,7 +757,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         )}
 
         {/* Portfolio / Wishlist content */}
-        {tab !== 'styling' && (
+        {tab !== 'styling' && tab !== 'feed' && (
           <>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -811,11 +863,11 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                       prices={prices}
                       valuationMode={valuationMode}
                       onEdit={handleEdit}
-                      onDelete={handleDelete}
+                      onDelete={tab === 'archive' ? (id) => { if (window.confirm('Permanently delete this piece? This cannot be undone.')) handleHardDelete(id) } : handleDelete}
                       privacyMode={privacyMode}
                       onTogglePrivacy={togglePrivacy}
                       cardPrefs={cardPrefs}
-                      onToggleFavorite={toggleFavorite}
+                      onToggleFavorite={tab === 'archive' ? undefined : toggleFavorite}
                     />
                   </div>
                 ))}
@@ -861,10 +913,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             </div>
           )}
           <button
-            onClick={bulkDelete}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-neutral-800 rounded-lg transition"
+            onClick={bulkRetire}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-gold-400 hover:bg-neutral-800 rounded-lg transition"
           >
-            <Trash2 className="w-4 h-4" /> Delete
+            <Archive className="w-4 h-4" /> Archive
           </button>
           <button
             onClick={() => { setBulkSelect(false); setSelectedPieceIds(new Set()) }}
@@ -895,7 +947,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         <PieceDetail
           piece={viewingPiece}
           prices={prices}
-          onClose={() => setViewingPiece(null)}
+          onClose={() => { setViewingPiece(null); setViewingFromFeed(false) }}
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
           pieceCollections={pieceCollectionMap[viewingPiece.id]}
@@ -905,6 +957,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           onDeleteShare={deleteShare}
           onUpdateShareValue={updateShowValue}
           onToggleFavorite={toggleFavorite}
+          onRetire={(piece) => setRetiringPiece(piece)}
+          onReactivate={async (id) => { await reactivatePiece(id); setViewingPiece(null) }}
+          onShareToFeed={async (pieceId, caption, isNominated) => { await createFeedPost(pieceId, caption, isNominated) }}
+          readOnly={viewingFromFeed}
         />
       )}
 
@@ -978,6 +1034,15 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         <ReportIssue
           userId={userId}
           onClose={() => setShowReportIssue(false)}
+        />
+      )}
+
+      {retiringPiece && (
+        <RetireModal
+          piece={retiringPiece}
+          onRetire={handleRetireConfirm}
+          onHardDelete={handleHardDelete}
+          onClose={() => setRetiringPiece(null)}
         />
       )}
     </div>

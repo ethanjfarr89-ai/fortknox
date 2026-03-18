@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { JewelryPiece, JewelryPieceInsert } from '../types'
+import type { JewelryPiece, JewelryPieceInsert, PieceStatus } from '../types'
 
 export function usePieces(userId: string | undefined) {
   const [pieces, setPieces] = useState<JewelryPiece[]>([])
@@ -71,7 +71,47 @@ export function usePieces(userId: string | undefined) {
     }
   }
 
-  return { pieces, loading, addPiece, updatePiece, deletePiece, toggleFavorite, refetch: fetchPieces }
+  const retirePiece = async (id: string, opts: { status: PieceStatus; date_departed: string; sale_price?: number | null; departed_to?: string | null }) => {
+    const { data, error } = await supabase
+      .from('pieces')
+      .update({
+        status: opts.status,
+        date_departed: opts.date_departed,
+        sale_price: opts.sale_price ?? null,
+        departed_to: opts.departed_to ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (!error && data) {
+      setPieces(prev => prev.map(p => (p.id === id ? normalizePiece(data) : p)))
+    }
+    return { data, error }
+  }
+
+  const reactivatePiece = async (id: string) => {
+    const { data, error } = await supabase
+      .from('pieces')
+      .update({
+        status: 'active',
+        date_departed: null,
+        sale_price: null,
+        departed_to: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (!error && data) {
+      setPieces(prev => prev.map(p => (p.id === id ? normalizePiece(data) : p)))
+    }
+    return { data, error }
+  }
+
+  return { pieces, loading, addPiece, updatePiece, deletePiece, retirePiece, reactivatePiece, toggleFavorite, refetch: fetchPieces }
 }
 
 // Normalize DB rows to ensure all new fields have defaults
@@ -93,5 +133,9 @@ function normalizePiece(row: Record<string, unknown>): JewelryPiece {
     gifted_by: row.gifted_by ?? null,
     inherited_from: row.inherited_from ?? null,
     date_received: row.date_received ?? null,
+    status: row.status ?? 'active',
+    date_departed: row.date_departed ?? null,
+    sale_price: row.sale_price ?? null,
+    departed_to: row.departed_to ?? null,
   } as JewelryPiece
 }

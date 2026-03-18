@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from 'react'
-import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search, GripVertical } from 'lucide-react'
+import { Plus, Trash2, X, Check, Image as ImageIcon, Tag, Search, GripVertical, Upload } from 'lucide-react'
 import type { StylingBoard, JewelryPiece, JewelryPieceInsert } from '../types'
+import { supabase } from '../lib/supabase'
 import PhotoManager from './PhotoManager'
 import Lightbox from './Lightbox'
 
@@ -30,12 +31,17 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
   const [showTagPicker, setShowTagPicker] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
 
+  // Upload directly to gallery
+  const [uploading, setUploading] = useState(false)
+  const [untaggerPhotos, setUntaggerPhotos] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   // Drag state
   const [draggingUrl, setDraggingUrl] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null) // board id or '__new__'
   const dragCounter = useRef<Record<string, number>>({})
 
-  const collectionPieces = pieces.filter(p => !p.is_wishlist)
+  const collectionPieces = pieces.filter(p => !p.is_wishlist && (p.status === 'active' || !p.status))
 
   const gallery = useMemo(() => {
     const photoMap = new Map<string, Set<string>>()
@@ -50,8 +56,14 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
     for (const [url, pieceIds] of photoMap) {
       result.push({ url, pieceIds: Array.from(pieceIds) })
     }
+    // Include untagged uploaded photos that aren't already in the gallery
+    for (const url of untaggerPhotos) {
+      if (!photoMap.has(url)) {
+        result.push({ url, pieceIds: [] })
+      }
+    }
     return result
-  }, [pieces])
+  }, [pieces, untaggerPhotos])
 
   const toggleSelectPhoto = (url: string) => {
     setSelectedForBoard(prev => {
@@ -88,6 +100,8 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
     const current = piece.styling_photo_urls ?? []
     if (current.includes(photoUrl)) return
     await onUpdatePiece(piece.id, { styling_photo_urls: [...current, photoUrl] })
+    // Remove from untagged once it's associated with a piece
+    setUntaggerPhotos(prev => prev.filter(u => u !== photoUrl))
     if (viewingPhoto) {
       setViewingPhoto({ ...viewingPhoto, pieceIds: [...viewingPhoto.pieceIds, piece.id] })
     }
@@ -161,6 +175,29 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
     setDraggingUrl(null)
   }
 
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploading(true)
+    const uploaded: string[] = []
+    for (const file of Array.from(files)) {
+      const ext = file.name.split('.').pop()
+      const path = `${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from('photos').upload(path, file, { cacheControl: '3600', upsert: false })
+      if (error) { console.error('Upload error:', error); continue }
+      const { data: urlData } = supabase.storage.from('photos').getPublicUrl(path)
+      uploaded.push(urlData.publicUrl)
+    }
+    if (uploaded.length > 0) {
+      setUntaggerPhotos(prev => [...prev, ...uploaded])
+      // Open the first uploaded photo for tagging
+      setViewingPhoto({ url: uploaded[0], pieceIds: [] })
+      setShowTagPicker(true)
+    }
+    setUploading(false)
+    e.target.value = ''
+  }
+
   const inputCls = 'w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-gold-400 focus:border-gold-400 outline-none transition text-sm text-white placeholder-neutral-500'
 
   return (
@@ -178,6 +215,19 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
                 <Plus className="w-3.5 h-3.5" /> Create Board ({selectedForBoard.size})
               </button>
             )}
+            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium rounded-lg transition text-xs cursor-pointer border border-neutral-700">
+              <Upload className="w-3.5 h-3.5" />
+              {uploading ? 'Uploading...' : 'Add Photo'}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleGalleryUpload}
+                className="hidden"
+                disabled={uploading}
+              />
+            </label>
           </div>
         </div>
 
@@ -185,7 +235,7 @@ export default function StylingBoards({ boards, pieces, onAdd, onUpdateBoard, on
           <div className="text-center py-12 bg-neutral-900 rounded-xl border border-neutral-800">
             <ImageIcon className="w-10 h-10 text-neutral-700 mx-auto mb-2" />
             <p className="text-sm text-neutral-500">No styling photos yet.</p>
-            <p className="text-xs text-neutral-600 mt-1">Add styling photos when editing a piece to build your gallery.</p>
+            <p className="text-xs text-neutral-600 mt-1">Upload styling photos to get started, then tag your pieces.</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">

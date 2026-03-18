@@ -16,6 +16,15 @@ export type Category = (typeof CATEGORIES)[number]['value']
 
 export type AcquisitionType = 'purchased' | 'gift' | 'inheritance'
 
+export type PieceStatus = 'active' | 'sold' | 'gifted_away' | 'lost' | 'retired'
+
+export const PIECE_STATUSES: { value: PieceStatus; label: string }[] = [
+  { value: 'sold', label: 'Sold' },
+  { value: 'gifted_away', label: 'Gifted Away' },
+  { value: 'lost', label: 'Lost / Stolen' },
+  { value: 'retired', label: 'Other' },
+]
+
 export interface Gemstone {
   stone_type: string
   cut: string
@@ -57,6 +66,10 @@ export interface JewelryPiece {
   date_received: string | null
   is_wishlist: boolean
   is_favorite: boolean
+  status: PieceStatus
+  date_departed: string | null
+  sale_price: number | null
+  departed_to: string | null
   photo_urls: string[]
   styling_photo_urls: string[]
   hallmark_photo_urls: string[]
@@ -88,7 +101,7 @@ export interface JewelryPiece {
   updated_at: string
 }
 
-export type JewelryPieceInsert = Omit<JewelryPiece, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'is_favorite'>
+export type JewelryPieceInsert = Omit<JewelryPiece, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'is_favorite' | 'status' | 'date_departed' | 'sale_price' | 'departed_to'>
 
 export interface SpotPrices {
   gold: number | null
@@ -112,7 +125,35 @@ export interface UserProfile {
   avatar_url: string | null
   avatar_crop: CropArea | null
   card_display_prefs: CardDisplayPrefs | null
+  instagram_handle: string | null
 }
+
+export interface FeedPost {
+  id: string
+  user_id: string
+  piece_id: string
+  caption: string | null
+  is_nominated: boolean
+  created_at: string
+  // Joined client-side
+  piece?: JewelryPiece
+  author_profile?: UserProfile
+  reactions: ReactionCount[]
+  user_reactions: string[]
+}
+
+export interface ReactionCount {
+  reaction_type: string
+  count: number
+}
+
+export const REACTION_TYPES = [
+  { type: 'heart', emoji: '\u2764\uFE0F' },
+  { type: 'fire', emoji: '\uD83D\uDD25' },
+  { type: 'sparkles', emoji: '\u2728' },
+  { type: 'crown', emoji: '\uD83D\uDC51' },
+  { type: 'gem', emoji: '\uD83D\uDC8E' },
+] as const
 
 export interface CollectionShare {
   collection_id: string

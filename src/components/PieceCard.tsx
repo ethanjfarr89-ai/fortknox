@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff, Heart } from 'lucide-react'
+import { Gem, Pencil, Trash2, Weight, TrendingUp, TrendingDown, Gift, Crown, ChevronLeft, ChevronRight, Eye, EyeOff, Heart, Archive } from 'lucide-react'
 import type { JewelryPiece, SpotPrices, ValuationMode, CardDisplayPrefs } from '../types'
 import { CATEGORIES, DEFAULT_CARD_PREFS } from '../types'
 import { calculateMeltValue, calculateGemstoneValue, isGoldType, metalBadgeClasses } from '../lib/prices'
@@ -141,6 +141,12 @@ export default function PieceCard({ piece, prices, valuationMode, onEdit, onDele
         <div className="absolute top-2 left-2 flex gap-1">
           {piece.is_wishlist && (
             <span className="px-2 py-0.5 bg-black/80 rounded text-xs text-gold-400 font-medium">Wishlist</span>
+          )}
+          {piece.status && piece.status !== 'active' && (
+            <span className="px-2 py-0.5 bg-black/80 rounded text-xs text-amber-400 font-medium flex items-center gap-1">
+              <Archive className="w-3 h-3" />
+              {piece.status === 'sold' ? 'Sold' : piece.status === 'gifted_away' ? 'Gifted' : piece.status === 'lost' ? 'Lost' : 'Retired'}
+            </span>
           )}
           {piece.acquisition_type === 'gift' && (
             <span className="p-1 bg-black/80 rounded"><Gift className="w-3 h-3 text-pink-400" /></span>

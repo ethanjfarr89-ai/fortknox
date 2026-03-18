@@ -80,6 +80,7 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
     const piecesWithDates = pieces.map(p => ({
       piece: p,
       acquiredDate: getAcquisitionDate(p) ?? earliestDate ?? new Date().toISOString().split('T')[0],
+      departedDate: p.date_departed ?? null,
     }))
 
     const today = new Date().toISOString().split('T')[0]
@@ -131,8 +132,8 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
 
         // Sum value of all pieces owned on this date
         let totalValue = 0
-        for (const { piece, acquiredDate } of piecesWithDates) {
-          if (acquiredDate <= date) {
+        for (const { piece, acquiredDate, departedDate } of piecesWithDates) {
+          if (acquiredDate <= date && (!departedDate || departedDate > date)) {
             totalValue += getPieceValue(piece, dayPrices, valuationMode)
           }
         }
@@ -153,8 +154,8 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
             updated_at: null,
           }
           let totalValue = 0
-          for (const { piece, acquiredDate } of piecesWithDates) {
-            if (acquiredDate <= lastHistDate) {
+          for (const { piece, acquiredDate, departedDate } of piecesWithDates) {
+            if (acquiredDate <= lastHistDate && (!departedDate || departedDate > lastHistDate)) {
               totalValue += getPieceValue(piece, dayPrices, valuationMode)
             }
           }
@@ -162,11 +163,13 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
         }
       }
 
-      // Always end with today using live prices, summing ALL pieces
+      // Always end with today using live prices, summing only active pieces
       // This ensures the chart endpoint matches the PortfolioSummary number
       let todayValue = 0
       for (const piece of pieces) {
-        todayValue += getPieceValue(piece, prices, valuationMode)
+        if (piece.status === 'active' || !piece.status) {
+          todayValue += getPieceValue(piece, prices, valuationMode)
+        }
       }
 
       if (timeline.length > 0 && timeline[timeline.length - 1].date === today) {
@@ -357,16 +360,21 @@ function forwardFill(arr: (number | null)[]): (number | null)[] {
 
 /** Fallback timeline using current prices (when historical data unavailable) */
 function buildFallbackTimeline(
-  piecesWithDates: { piece: JewelryPiece; acquiredDate: string }[],
+  piecesWithDates: { piece: JewelryPiece; acquiredDate: string; departedDate: string | null }[],
   allPieces: JewelryPiece[],
   prices: SpotPrices,
   valuationMode: ValuationMode,
   cutoffDate: string | null,
   today: string,
 ) {
-  const events: { date: string; value: number }[] = []
-  for (const { piece, acquiredDate } of piecesWithDates) {
-    events.push({ date: acquiredDate, value: getPieceValue(piece, prices, valuationMode) })
+  // Build events for acquisitions and departures
+  const events: { date: string; delta: number }[] = []
+  for (const { piece, acquiredDate, departedDate } of piecesWithDates) {
+    const val = getPieceValue(piece, prices, valuationMode)
+    events.push({ date: acquiredDate, delta: val })
+    if (departedDate) {
+      events.push({ date: departedDate, delta: -val })
+    }
   }
   events.sort((a, b) => a.date.localeCompare(b.date))
 
@@ -378,7 +386,7 @@ function buildFallbackTimeline(
   timeline.push({ date: firstDate.toISOString().split('T')[0], value: 0 })
 
   for (const event of events) {
-    cumulative += event.value
+    cumulative += event.delta
     if (timeline.length > 0 && timeline[timeline.length - 1].date === event.date) {
       timeline[timeline.length - 1].value = cumulative
     } else {
@@ -386,10 +394,12 @@ function buildFallbackTimeline(
     }
   }
 
-  // End with today using all pieces (matches summary)
+  // End with today using only active pieces (matches summary)
   let todayValue = 0
   for (const piece of allPieces) {
-    todayValue += getPieceValue(piece, prices, valuationMode)
+    if (piece.status === 'active' || !piece.status) {
+      todayValue += getPieceValue(piece, prices, valuationMode)
+    }
   }
   if (timeline[timeline.length - 1].date === today) {
     timeline[timeline.length - 1].value = todayValue

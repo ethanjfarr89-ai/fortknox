@@ -4,4 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://fortknox-plum.vercel.app',
+        changeOrigin: true,
+      },
+    },
+  },
 })
