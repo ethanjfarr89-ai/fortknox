@@ -15,7 +15,7 @@ function fmt(val: number | null) {
 export default function SpotPriceBar({ prices, loading, onRefresh }: Props) {
   return (
     <div className="bg-neutral-900 border-b border-neutral-800">
-      <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-4 overflow-x-auto text-sm">
+      <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-4 overflow-x-auto scrollbar-hide text-sm">
         <span className="font-medium text-neutral-400 shrink-0">Spot Prices</span>
         <span className="text-gold-400 shrink-0">Gold {fmt(prices.gold)}/oz</span>
         <span className="text-neutral-400 shrink-0">Silver {fmt(prices.silver)}/oz</span>

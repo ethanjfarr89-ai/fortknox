@@ -431,9 +431,11 @@ export default function Dashboard({ userId, onSignOut }: Props) {
           />
         ) : (
         <>
-        {/* Onboarding for new users */}
+        {/* Onboarding — context-aware based on user progress */}
         <Onboarding
           onAddPiece={() => { setEditingPiece(null); setDefaultFormValues(null); setShowForm(true) }}
+          pieceCount={collectionPieces.length}
+          hasFriends={friends.length > 0}
         />
 
         {tab === 'portfolio' && (
@@ -493,10 +495,10 @@ export default function Dashboard({ userId, onSignOut }: Props) {
 
         {/* Main tabs */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+          <div className="flex items-center gap-1 bg-neutral-900 rounded-lg p-1 border border-neutral-800 overflow-x-auto scrollbar-hide" style={{ overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch' }}>
             <button
               onClick={() => { setTab('portfolio'); setSelectedCollection(null) }}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap shrink-0 ${
                 tab === 'portfolio' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -504,7 +506,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             </button>
             <button
               onClick={() => setTab('feed')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap shrink-0 ${
                 tab === 'feed' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -513,7 +515,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             </button>
             <button
               onClick={() => setTab('styling')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap shrink-0 ${
                 tab === 'styling' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -521,7 +523,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             </button>
             <button
               onClick={() => setTab('wishlist')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap shrink-0 ${
                 tab === 'wishlist' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -530,7 +532,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
             {archivedPieces.length > 0 && (
               <button
                 onClick={() => setTab('archive')}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap shrink-0 ${
                   tab === 'archive' ? 'bg-gold-400 text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
@@ -609,20 +611,20 @@ export default function Dashboard({ userId, onSignOut }: Props) {
         {/* Category filter + sort */}
         {tab !== 'styling' && tab !== 'feed' && (
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setShowFavorites(prev => !prev)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap shrink-0 ${
                   showFavorites ? 'bg-red-900/30 text-red-400' : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
                 <Heart className={`w-3 h-3 ${showFavorites ? 'fill-red-400' : ''}`} />
                 Favorites
               </button>
-              <div className="w-px h-4 bg-neutral-700" />
+              <div className="w-px h-4 bg-neutral-700 shrink-0" />
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap shrink-0 ${
                   !selectedCategory ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
                 }`}
               >
@@ -632,7 +634,7 @@ export default function Dashboard({ userId, onSignOut }: Props) {
                 <button
                   key={c.value}
                   onClick={() => setSelectedCategory(c.value === selectedCategory ? null : c.value)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition whitespace-nowrap shrink-0 ${
                     selectedCategory === c.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
                   }`}
                 >

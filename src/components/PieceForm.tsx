@@ -195,13 +195,13 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, def
           {/* Category */}
           <div>
             <label className={labelCls}>Category</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {CATEGORIES.map(c => (
                 <button
                   key={c.value}
                   type="button"
                   onClick={() => setCategory(c.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition ${
                     category === c.value
                       ? 'bg-gold-400 text-black'
                       : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
@@ -221,7 +221,7 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, def
 
           {/* Metal info — hidden for watches (they have their own material fields) */}
           {category !== 'watch' && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Metal</label>
                 <select value={metalType} onChange={e => setMetalType(e.target.value as JewelryPiece['metal_type'])} className={inputCls}>
@@ -439,13 +439,13 @@ export default function PieceForm({ piece, onSave, onClose, defaultWishlist, def
           {/* Acquisition */}
           <div>
             <label className={labelCls}>How acquired</label>
-            <div className="flex gap-1.5">
-              {([['purchased', 'Purchased'], ['gift', 'Gift'], ['inheritance', 'Inheritance / Heirloom']] as const).map(([val, label]) => (
+            <div className="flex gap-1.5 flex-wrap">
+              {([['purchased', 'Purchased'], ['gift', 'Gift'], ['inheritance', 'Heirloom']] as const).map(([val, label]) => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setAcquisitionType(val)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition ${
                     acquisitionType === val ? 'bg-gold-400 text-black' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
                 >

@@ -120,28 +120,15 @@ export function useFeed(userId: string | undefined) {
     if (dailyGem?.id === postId) setDailyGem(null)
   }
 
-  const toggleReaction = async (postId: string, reactionType: string) => {
+  const toggleReaction = (postId: string, reactionType: string) => {
     if (!userId) return
 
     // Check if already reacted
     const post = posts.find(p => p.id === postId)
     const hasReaction = post?.user_reactions.includes(reactionType)
 
-    if (hasReaction) {
-      await supabase
-        .from('feed_reactions')
-        .delete()
-        .eq('post_id', postId)
-        .eq('user_id', userId)
-        .eq('reaction_type', reactionType)
-    } else {
-      await supabase
-        .from('feed_reactions')
-        .insert({ post_id: postId, user_id: userId, reaction_type: reactionType })
-    }
-
-    // Optimistic update
-    setPosts(prev => prev.map(p => {
+    // Optimistic update first — instant UI response
+    const updatePosts = (prev: FeedPost[]) => prev.map(p => {
       if (p.id !== postId) return p
       let reactions = [...p.reactions]
       let userReactions = [...p.user_reactions]
@@ -162,14 +149,30 @@ export function useFeed(userId: string | undefined) {
         userReactions.push(reactionType)
       }
       return { ...p, reactions, user_reactions: userReactions }
-    }))
+    })
 
-    // Also update dailyGem if it's the same post
+    setPosts(updatePosts)
     setDailyGem(prev => {
       if (!prev || prev.id !== postId) return prev
-      const updated = posts.find(p => p.id === postId)
-      return updated ? { ...updated } : prev
+      const updated = updatePosts([prev])[0]
+      return updated
     })
+
+    // Fire API call in background — don't block UI
+    if (hasReaction) {
+      supabase
+        .from('feed_reactions')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .eq('reaction_type', reactionType)
+        .then()
+    } else {
+      supabase
+        .from('feed_reactions')
+        .insert({ post_id: postId, user_id: userId, reaction_type: reactionType })
+        .then()
+    }
   }
 
   return { posts, dailyGem, loading, createPost, deletePost, toggleReaction, refetch: fetchFeed }

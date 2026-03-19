@@ -226,8 +226,8 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
   const color = isUp ? '#34d399' : '#f87171'
 
   return (
-    <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+    <div className="bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-800">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2 overflow-x-auto scrollbar-hide">
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-medium text-neutral-400">
             Portfolio Value ({valuationMode === 'melt' ? 'Melt' : 'Appraised'})
@@ -253,12 +253,12 @@ export default function PortfolioChart({ pieces, prices, valuationMode, privacyM
             </div>
           )}
         </div>
-        <div className="flex gap-1 bg-neutral-800 rounded-lg p-0.5">
+        <div className="flex gap-1 bg-neutral-800 rounded-lg p-0.5 overflow-x-auto scrollbar-hide">
           {ranges.map(r => (
             <button
               key={r.label}
               onClick={() => setRange(r.label)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition shrink-0 ${
                 range === r.label ? 'bg-gold-400 text-black' : 'text-neutral-500 hover:text-neutral-300'
               }`}
             >

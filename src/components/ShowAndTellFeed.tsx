@@ -120,7 +120,7 @@ function Avatar({ profile, size = 'md' }: { profile?: UserProfile | null; size?:
 
 function ReactionBar({ post, onToggle }: { post: FeedPost; onToggle: (type: string) => void }) {
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-1.5 flex-wrap">
       {REACTION_TYPES.map(r => {
         const count = post.reactions.find(rc => rc.reaction_type === r.type)?.count ?? 0
         const isActive = post.user_reactions.includes(r.type)
@@ -128,7 +128,7 @@ function ReactionBar({ post, onToggle }: { post: FeedPost; onToggle: (type: stri
           <button
             key={r.type}
             onClick={(e) => { e.stopPropagation(); onToggle(r.type) }}
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition ${
+            className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm transition ${
               isActive
                 ? 'bg-gold-400/15 border border-gold-400/30'
                 : 'bg-neutral-800 border border-neutral-700 hover:border-neutral-600'

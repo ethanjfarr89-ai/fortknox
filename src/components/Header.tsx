@@ -134,7 +134,7 @@ export default function Header({ profile, userId, friends, pending, notification
             </button>
 
             {friendsOpen && (
-              <div className="absolute right-0 mt-1 w-80 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 mt-1 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-neutral-800">
                   <h3 className="text-sm font-semibold text-white">Friends</h3>
                 </div>
@@ -265,7 +265,7 @@ export default function Header({ profile, userId, friends, pending, notification
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 mt-1 w-80 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 mt-1 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
                   <h3 className="text-sm font-semibold text-white">Notifications</h3>
                   {notifications.length > 1 && (
